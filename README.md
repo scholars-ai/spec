@@ -1,0 +1,35 @@
+# scholar-ai · Spec 仓库
+
+> AI 内容创作 Agent 军团：选题 → 评分 → 写作 → 评分 → 发布 → 数据回流 → 持续进化的自循环系统。
+
+本仓库是 scholar-ai 组织的**唯一事实来源（Source of Truth）**：所有架构决策、模块设计、评分体系、路线图都以 spec 文档形式沉淀在这里。任何仓库的重大改动，先改 spec，再写代码。
+
+## Spec 索引
+
+| 编号 | 文档 | 内容 |
+|---|---|---|
+| SPEC-000 | [愿景与范围](specs/SPEC-000-vision-and-scope.md) | 项目目标、非目标、成功标准 |
+| SPEC-001 | [总体架构与技术选型](specs/SPEC-001-architecture.md) | 技术栈、Polyrepo 划分、服务间通信 |
+| SPEC-002 | [数据模型](specs/SPEC-002-data-model.md) | 核心实体、数据库 Schema、状态机 |
+| SPEC-003 | [选题采集](specs/SPEC-003-topic-sourcing.md) | 信源接入、去重、选题候选池 |
+| SPEC-004 | [评分体系（Evaluation）](specs/SPEC-004-evaluation-system.md) | 选题评分 + 文章评分 + 数据校准闭环 |
+| SPEC-005 | [写作 Agent 军团](specs/SPEC-005-writing-agents.md) | 平台专家 Agent、格式规范、扩展机制 |
+| SPEC-006 | [记忆与反馈闭环](specs/SPEC-006-memory-and-feedback-loop.md) | 发帖数据回流、反思机制、经验库 |
+| SPEC-007 | [路线图](specs/SPEC-007-roadmap.md) | 里程碑 M0–M4、验收标准 |
+
+## 组织仓库规划（Polyrepo）
+
+| 仓库 | 职责 | 技术栈 |
+|---|---|---|
+| `spec` | 本仓库，spec / ADR / 路线图 | Markdown |
+| `scholar-shared` | 跨服务共享的类型、契约、评分 Schema | TypeScript（npm 包，GitHub Packages） |
+| `scholar-core` | 后端 API + 流水线编排 + 任务调度 | NestJS + PostgreSQL + BullMQ |
+| `scholar-agents` | Agent 运行时：选题/评审/写作/反思 Agent | TypeScript + Claude Agent SDK |
+| `scholar-console` | 前端控制台：选题看板、文章审阅、数据面板 | Next.js + shadcn/ui |
+| `scholar-infra` | 部署编排：Docker Compose、Nginx、备份脚本 | Docker / Shell |
+
+## 工作方式约定
+
+- **Spec 先行**：新功能先提 spec PR（或修订现有 spec），达成一致后再动代码。
+- **ADR**：重大技术决策记录在 `adr/` 目录，编号递增，只增不删（被推翻的标记 Superseded）。
+- **契约变更**：`scholar-shared` 的任何 breaking change 必须先在 SPEC-002 中体现。
