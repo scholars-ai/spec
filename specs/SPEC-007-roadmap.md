@@ -9,7 +9,7 @@
 ## M0 · 地基（本周）
 
 - [x] 设计 spec（本仓库）
-- [ ] 创建 GitHub Organization `scholar-ai`（网页手动，见下方备注）
+- [ ] 创建 GitHub Organization `scholars-ai`（网页手动，见下方备注）
 - [ ] 建 6 个仓库：spec / scholar-shared / scholar-core / scholar-agents / scholar-console / scholar-infra，推入初始骨架
 - [ ] scholar-shared：Zod schema 首版（实体 + job payload + rubric 类型）
 - [ ] scholar-core：NestJS 骨架 + Drizzle 迁移（SPEC-002 全部表）+ Swagger
@@ -61,5 +61,5 @@
 
 github.com 的个人账号**无法通过 API 创建组织**（该 API 仅 GitHub Enterprise Server 提供），需网页操作：
 1. 访问 https://github.com/account/organizations/new ，选 Free plan
-2. 组织名填 `scholar-ai`（截至 2026-08-06 该名称未被占用）
+2. 组织名填 `scholars-ai`（截至 2026-08-06 该名称未被占用）
 3. 创建后 Claude Code 侧执行 `gh auth refresh -h github.com -s repo,admin:org` 刷新 token，即可用 gh 建仓、推代码、配 org secrets

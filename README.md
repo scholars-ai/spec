@@ -1,8 +1,8 @@
-# scholar-ai · Spec 仓库
+# scholars-ai · Spec 仓库
 
 > AI 内容创作 Agent 军团：选题 → 评分 → 写作 → 评分 → 发布 → 数据回流 → 持续进化的自循环系统。
 
-本仓库是 scholar-ai 组织的**唯一事实来源（Source of Truth）**：所有架构决策、模块设计、评分体系、路线图都以 spec 文档形式沉淀在这里。任何仓库的重大改动，先改 spec，再写代码。
+本仓库是 scholars-ai 组织的**唯一事实来源（Source of Truth）**：所有架构决策、模块设计、评分体系、路线图都以 spec 文档形式沉淀在这里。任何仓库的重大改动，先改 spec，再写代码。
 
 ## Spec 索引
 
