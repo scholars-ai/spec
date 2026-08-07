@@ -11,10 +11,10 @@
 - [x] 设计 spec（本仓库）
 - [ ] 创建 GitHub Organization `scholars-ai`（网页手动，见下方备注）
 - [ ] 建 6 个仓库：spec / scholar-shared / scholar-core / scholar-agents / scholar-console / scholar-infra，推入初始骨架
-- [ ] scholar-shared：Zod schema 首版（实体 + job payload + rubric 类型）
-- [ ] scholar-core：NestJS 骨架 + Drizzle 迁移（SPEC-002 全部表）+ Swagger
-- [ ] scholar-infra：docker-compose（core / agents / redis / langfuse）+ 本地开发 compose
-- [ ] CI：三个 TS 仓库 lint + typecheck + test 跑通
+- [ ] scholar-shared：JSON Schema 首版（实体 + job payload + rubric 结构）+ rubric YAML + codegen 管线（Go/Python/TS）
+- [ ] scholar-core：Go 骨架（chi + sqlc + oapi-codegen）+ goose 迁移（SPEC-002 全部表）
+- [ ] scholar-infra：docker-compose（core / agents / langfuse；本地 Postgres 含 pgmq+pgvector 扩展）+ 本地开发 compose
+- [ ] CI：core（go vet/test/build）、agents（ruff/mypy/pytest）、console（lint/typecheck）、shared（codegen 无 diff 校验）跑通
 - 验收：本地 `docker compose up` 起全套，core 健康检查通过，空管道可插入一条手动 topic
 
 ## M1 · 选题闭环（人工确认）

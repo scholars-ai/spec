@@ -22,9 +22,9 @@
 | 仓库 | 职责 | 技术栈 |
 |---|---|---|
 | `spec` | 本仓库，spec / ADR / 路线图 | Markdown |
-| `scholar-shared` | 跨服务共享的类型、契约、评分 Schema | TypeScript（npm 包，GitHub Packages） |
-| `scholar-core` | 后端 API + 流水线编排 + 任务调度 | NestJS + PostgreSQL + BullMQ |
-| `scholar-agents` | Agent 运行时：选题/评审/写作/反思 Agent | TypeScript + Claude Agent SDK |
+| `scholar-shared` | 语言中立契约：JSON Schema + OpenAPI + rubric YAML，codegen 三端 | JSON Schema / OpenAPI / codegen |
+| `scholar-core` | 后端 API + 流水线状态机 + 调度 | Go（chi + sqlc + goose + oapi-codegen）+ PostgreSQL + pgmq |
+| `scholar-agents` | Agent 运行时：采集/选题/评审/写作/反思 + ModelProvider 双协议层 | Python 3.12 + 自研 runtime |
 | `scholar-console` | 前端控制台：选题看板、文章审阅、数据面板 | Next.js + shadcn/ui |
 | `scholar-infra` | 部署编排：Docker Compose、Nginx、备份脚本 | Docker / Shell |
 

@@ -8,7 +8,7 @@
 
 一个 topic 被 approved 后，按 target_platforms 分派给对应的**平台专家 Agent**并行写作，各自产出适配该平台的 Markdown 成品。专家 Agent 是**同构不同魂**：共享同一套写作流水线骨架，差异全部收敛在"平台档案（Platform Profile）"里——这是保证"后续新增平台专家 Agent"低成本的关键设计。
 
-## 2. Agent 编排（Claude Agent SDK）
+## 2. Agent 编排（自研 runtime，ADR-002）
 
 ```
 article.write job (topic_id, platform)
@@ -33,7 +33,7 @@ WriterOrchestrator（每平台一个实例，注入对应 Platform Profile）
 
 ## 3. Platform Profile（平台档案）
 
-每个平台一份声明式配置（`scholar-agents` 内，TS 对象 + prompt 片段），包含：
+每个平台一份声明式配置（`scholar-shared/` 内 YAML + prompt 片段，结构由 JSON Schema 约束），包含：
 
 | 组成 | 内容 |
 |---|---|

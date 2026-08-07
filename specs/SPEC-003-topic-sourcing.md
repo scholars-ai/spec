@@ -24,7 +24,7 @@
 ## 3. 采集流水线
 
 ```
-BullMQ repeatable job (每小时) ──▶ fetch(source) ──▶ 清洗/正文提取 ──▶ 精确去重(content_hash)
+core cron 每小时投递 pgmq job ──▶ agents 侧 fetch(source) ──▶ 清洗/正文提取 ──▶ 精确去重(content_hash)
    ──▶ embedding ──▶ 语义去重(与近14天 raw_items 相似度 > 0.92 则合并) ──▶ 入库 status=new
 ```
 

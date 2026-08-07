@@ -4,7 +4,7 @@
 - 日期：2026-08-06
 - 依赖：SPEC-001
 
-所有实体的 Zod schema 定义在 `scholar-shared`，Drizzle schema 在 `scholar-core`，两者由 CI 保证一致。下面是核心实体与关系（省略 created_at/updated_at 等审计字段）。
+所有实体的 JSON Schema 定义在 `scholar-shared/schemas/`（单一事实来源，codegen 出 Go/Python/TS 三端类型），`scholar-core` 的 goose 迁移与之对齐，由 CI 保证一致。下面是核心实体与关系（省略 created_at/updated_at 等审计字段）。
 
 ## 1. 实体关系总览
 
@@ -165,4 +165,4 @@ draft ──评分──▶ scored ──┬─ 总分 ≥ 阈值 ──▶ pend
 - `raw_items.content_hash` unique；embedding 建 HNSW 索引（pgvector）。
 - `articles` 上 `(topic_id, platform, version)` unique。
 - `metric_snapshots` 上 `(publication_id, captured_at)` unique。
-- 所有 enum 用 Postgres enum + `scholar-shared` 的 Zod enum 双向对齐，新增平台只需扩枚举，不动表结构。
+- 所有 enum 用 Postgres enum + `scholar-shared` 的 JSON Schema enum 双向对齐，新增平台只需扩枚举，不动表结构。
