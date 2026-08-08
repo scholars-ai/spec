@@ -20,6 +20,6 @@ v1 选 BullMQ + Redis 做 core → agents 的任务队列。ADR-001 语言切换
 
 ## 后果与代价
 
-- 无 BullMQ 自带的 dashboard——console 的运维页直接查 pgmq 表补齐（本来也要做 agent_runs 展示）。
+- 无 BullMQ 自带的 dashboard——client 的运维页直接查 pgmq 表补齐（本来也要做 agent_runs 展示）。
 - 消费语义为 visibility timeout 模型，重试/死信需按 pgmq 惯例自建薄封装（约几十行 SQL/代码）。
 - 若未来吞吐暴涨（多租户化），迁移到专业队列需要重写队列薄层——接口已隔离，风险可控。

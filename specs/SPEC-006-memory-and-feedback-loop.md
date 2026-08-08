@@ -11,9 +11,9 @@
 ## 2. 数据回流
 
 - **录入方式（渐进）**：
-  - M3 起步：console 提供每篇发布记录的指标录入表单（30 秒填完一篇），支持批量粘贴/CSV 导入；
+  - M3 起步：client 提供每篇发布记录的指标录入表单（30 秒填完一篇），支持批量粘贴/CSV 导入；
   - M4 探索：平台后台数据导出文件的解析导入；有稳定 API/工具的平台走自动化。
-- **采样节奏**：发布后 24h / 72h / 7d 三个标准快照点（metric_snapshots），console 到点提醒待录数据。曲线形态本身就是信息（前 24h 冲高 vs 长尾型）。
+- **采样节奏**：发布后 24h / 72h / 7d 三个标准快照点（metric_snapshots），client 到点提醒待录数据。曲线形态本身就是信息（前 24h 冲高 vs 长尾型）。
 - **关联**：publication → article → topic → source 链路在数据模型上天然打通，任何指标都能归因到"哪个信源孵化的哪个选题的哪个平台版本"。
 
 ## 3. 表现分 P（真实世界的"评分"）
@@ -37,7 +37,7 @@
      - 新证据支持既有经验 → confidence 上调、evidence 追加
      - 新证据矛盾 → confidence 下调，跌破阈值则 status=retired（经验会过时，平台风向会变）
 输出：insights 表的增/改（kind: topic_lesson / writing_lesson / platform_lesson / source_lesson）
-     + 一份人可读的周报（console 展示，你本人也是这个系统的学习者）
+     + 一份人可读的周报（client 展示，你本人也是这个系统的学习者）
 ```
 
 **关键纪律：insight 必须是可执行的（actionable）**。"内容质量要高"是废话，"小红书标题带具体数字+成本（'3 天/0 基础/白嫖'）的收藏率显著高于抽象标题"才是 insight。Reflector 的 prompt 会强制要求 evidence 字段非空。
@@ -57,7 +57,7 @@
 
 - 经验只增不删会导致 prompt 膨胀和自我强化偏见：confidence 衰减 + retired 机制强制新陈代谢。
 - 避免"过拟合爆款"：Reflector 周报必须区分"可复制的模式"与"蹭上热点的运气"；样本 < 5 的模式一律标 candidate。
-- 人工否决权：console 可手动 retire 任何 insight。
+- 人工否决权：client 可手动 retire 任何 insight。
 
 ## 7. 验收标准（M3–M4）
 

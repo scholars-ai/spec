@@ -10,7 +10,7 @@
 
 | 层 | 选型 | 理由 |
 |---|---|---|
-| 前端 console | **Next.js 15 (App Router) + TypeScript + Tailwind CSS + shadcn/ui + TanStack Query** | 内部控制台形态；已有 Vercel 生产经验；组件代码自持有 |
+| 前端 client | **Next.js 15 (App Router) + TypeScript + Tailwind CSS + shadcn/ui + TanStack Query** | 内部控制台形态；已有 Vercel 生产经验；组件代码自持有 |
 | 业务核心 core | **Go 1.23+：chi（路由）+ sqlc（类型安全 SQL）+ goose（迁移）+ oapi-codegen（OpenAPI-first）** | 生产级服务工程的学习主场；单二进制部署、低资源占用（VPS 友好）；全部是社区主流无魔法的工具 |
 | Agent 运行时 agents | **Python 3.12：uv（包管理）+ Pydantic + 自研轻量 agent runtime** | AI 生态母语：评分校准的统计分析（pandas/scipy）、Langfuse Python SDK 一等支持；自研 runtime 学习收益最大（ADR-002） |
 | 模型接入 | **Provider 抽象层：AnthropicProvider + OpenAICompatProvider 双协议** | OpenAI 协议已是行业通用协议（DeepSeek/Qwen/Kimi/GLM/OpenRouter/Ollama 全兼容），Anthropic 协议有独特能力（caching/thinking）；按任务路由模型，改配置即切换（ADR-002） |
@@ -21,7 +21,7 @@
 | Agent 可观测 | **Langfuse（自托管 VPS）** | trace 每次运行的 prompt/成本/评分 |
 | 采集 | **RSSHub（VPS 已有实例，复用）+ Python 侧 feedparser/trafilatura** | 采集与清洗划入 agents 侧的 Python 生态（见 §2 分工） |
 | 对象存储 | 预留：腾讯云 COS（配图/封面阶段再接） | 与现有 aicave 基建一致 |
-| 部署 | console → **Vercel**；core/agents/Langfuse → **VPS Docker Compose**（复用现有 nginx） | 长任务与常驻 worker 不适合 serverless |
+| 部署 | client → **Vercel**；core/agents/Langfuse → **VPS Docker Compose**（复用现有 nginx） | 长任务与常驻 worker 不适合 serverless |
 | CI/CD | **GitHub Actions**：各仓库 lint + test + build；镜像推 GHCR | 已建立安全基线（pinned SHA、最小权限、gitleaks、push protection） |
 
 ### 明确不选的方案（记录理由，避免反复）
@@ -86,7 +86,7 @@ scholar-shared/
   gen/
     go/               # quicktype/oapi-codegen 产物 → core 引用（go mod）
     python/           # datamodel-code-generator 产物（Pydantic v2）→ agents 引用
-    ts/               # openapi-typescript + json-schema-to-typescript 产物 → console 引用
+    ts/               # openapi-typescript + json-schema-to-typescript 产物 → client 引用
   rubrics/            # rubric 定义（YAML，版本化，如 topic.v1.yaml）——数据而非代码，三语言可读
 ```
 
@@ -116,7 +116,7 @@ scholar-infra   (引用各仓库镜像/产物，不被依赖)
 
 - **Agent 层**：Langfuse trace（每个 job 一条 trace，子步骤嵌套 span），评分作为 score 挂 trace。
 - **服务层**：core 用 slog 结构化日志；agents 用 structlog；VPS logrotate（已有实践）。
-- **业务层**：console 数据面板直查 Postgres 聚合（core 提供 API）。
+- **业务层**：client 数据面板直查 Postgres 聚合（core 提供 API）。
 
 ## 7. 开放问题
 

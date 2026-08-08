@@ -14,7 +14,7 @@
 - [ ] scholar-shared：JSON Schema 首版（实体 + job payload + rubric 结构）+ rubric YAML + codegen 管线（Go/Python/TS）
 - [ ] scholar-core：Go 骨架（chi + sqlc + oapi-codegen）+ goose 迁移（SPEC-002 全部表）
 - [ ] scholar-infra：docker-compose（core / agents / langfuse；本地 Postgres 含 pgmq+pgvector 扩展）+ 本地开发 compose
-- [ ] CI：core（go vet/test/build）、agents（ruff/mypy/pytest）、console（lint/typecheck）、shared（codegen 无 diff 校验）跑通
+- [ ] CI：core（go vet/test/build）、agents（ruff/mypy/pytest）、client（lint/typecheck）、shared（codegen 无 diff 校验）跑通
 - 验收：本地 `docker compose up` 起全套，core 健康检查通过，空管道可插入一条手动 topic
 
 ## M1 · 选题闭环（人工确认）
@@ -22,7 +22,7 @@
 - [ ] Sourcing 模块：≥8 信源接入（复用 VPS RSSHub）+ 手动投喂 URL
 - [ ] 去重（hash + embedding）、TopicScout 聚合选题
 - [ ] 选题评分 rubric topic@v1 + TopicJudge Agent + Langfuse 接入
-- [ ] console v1：选题看板（候选/评分/理由/确认与否决）、信源管理
+- [ ] client v1：选题看板（候选/评分/理由/确认与否决）、信源管理
 - [ ] 部署上 VPS，定时任务跑起来
 - 验收：SPEC-003 §5 + SPEC-004 验收标准 M1 条目
 
@@ -30,14 +30,14 @@
 
 - [ ] Platform Profile × 3（小红书/知乎/公众号）+ WriterOrchestrator 流水线
 - [ ] 文章评分 rubric × 3 + ArticleJudge + 回炉机制
-- [ ] console：文章审阅页（diff 编辑、终审通过/拒绝、复制导出 md）
+- [ ] client：文章审阅页（diff 编辑、终审通过/拒绝、复制导出 md）
 - [ ] publications 手动登记（发了哪、链接、最终稿 diff）
 - 验收：SPEC-005 §5 条目；开始真实运营发帖
 
 ## M3 · 数据回流与记忆 v1
 
 - [ ] 指标录入（表单 + CSV 导入）+ 24h/72h/7d 快照提醒
-- [ ] 表现分 P 计算 + 数据面板（console）
+- [ ] 表现分 P 计算 + 数据面板（client）
 - [ ] Reflector Agent + insights 库 + 周报
 - [ ] 记忆注入 TopicScout / Writer
 - [ ] 首份评分校准报告（只报告，不自动调权）
