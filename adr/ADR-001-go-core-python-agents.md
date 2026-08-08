@@ -11,7 +11,7 @@ SPEC-001 v1 选择全栈 TypeScript（NestJS + Claude Agent SDK TS + Next.js）�
 
 - `scholar-core`（业务核心/API/编排）：**Go**（chi + sqlc + goose + oapi-codegen）
 - `scholar-agents`（Agent 运行时）：**Python 3.12**（uv + Pydantic + 自研 runtime）
-- `scholar-console`（前端）：维持 Next.js/TS
+- `scholar-client`（前端）：维持 Next.js/TS
 - 契约层改为语言中立：JSON Schema + OpenAPI 为源，codegen 出 Go/Python/TS 三端代码
 
 ## 理由

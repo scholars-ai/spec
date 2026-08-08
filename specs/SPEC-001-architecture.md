@@ -37,7 +37,7 @@
 
 ```
                         ┌─────────────────────────────┐
-                        │  scholar-console (Next.js)  │  Vercel
+                        │  scholar-client (Next.js)  │  Vercel
                         │  选题看板/文章审阅/数据面板     │
                         └──────────────┬──────────────┘
                                        │ REST (OpenAPI，类型化 client 由 codegen 生成)
@@ -100,7 +100,7 @@ scholar-shared/
 spec  (无代码依赖，所有仓库的上游)
 scholar-shared  ◀── scholar-core     (Go：引用 gen/go)
                 ◀── scholar-agents   (Python：引用 gen/python)
-                ◀── scholar-console  (TS：引用 gen/ts)
+                ◀── scholar-client  (TS：引用 gen/ts)
 scholar-infra   (引用各仓库镜像/产物，不被依赖)
 ```
 

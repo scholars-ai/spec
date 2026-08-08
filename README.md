@@ -25,7 +25,7 @@
 | `scholar-shared` | 语言中立契约：JSON Schema + OpenAPI + rubric YAML，codegen 三端 | JSON Schema / OpenAPI / codegen |
 | `scholar-core` | 后端 API + 流水线状态机 + 调度 | Go（chi + sqlc + goose + oapi-codegen）+ PostgreSQL + pgmq |
 | `scholar-agents` | Agent 运行时：采集/选题/评审/写作/反思 + ModelProvider 双协议层 | Python 3.12 + 自研 runtime |
-| `scholar-console` | 前端控制台：选题看板、文章审阅、数据面板 | Next.js + shadcn/ui |
+| `scholar-client` | 前端控制台：选题看板、文章审阅、数据面板 | Next.js + shadcn/ui |
 | `scholar-infra` | 部署编排：Docker Compose、Nginx、备份脚本 | Docker / Shell |
 
 ## 工作方式约定

@@ -10,7 +10,7 @@
 
 - [x] 设计 spec（本仓库）
 - [ ] 创建 GitHub Organization `scholars-ai`（网页手动，见下方备注）
-- [ ] 建 6 个仓库：spec / scholar-shared / scholar-core / scholar-agents / scholar-console / scholar-infra，推入初始骨架
+- [ ] 建 6 个仓库：spec / scholar-shared / scholar-core / scholar-agents / scholar-client / scholar-infra，推入初始骨架
 - [ ] scholar-shared：JSON Schema 首版（实体 + job payload + rubric 结构）+ rubric YAML + codegen 管线（Go/Python/TS）
 - [ ] scholar-core：Go 骨架（chi + sqlc + oapi-codegen）+ goose 迁移（SPEC-002 全部表）
 - [ ] scholar-infra：docker-compose（core / agents / langfuse；本地 Postgres 含 pgmq+pgvector 扩展）+ 本地开发 compose
