@@ -56,8 +56,36 @@ core cron 每小时投递 pgmq job ──▶ agents 侧 fetch(source)
 
 - 清洗规则：HTML → 纯文本/Markdown（trafilatura），去广告导航，截断超长正文（保留前 8k token）。
 - **去重键优先用 feed 的 `guid`**（实测聚合源 guid 唯一性 50/50），无 guid 时回退 `sha256(正文)`。
-- **XML 解析必须用 `defusedxml`**（第三方 feed 是不可信输入，防 XXE / billion-laughs）。
+- **XML 解析必须用 `defusedxml` 或 feedparser**（第三方 feed 是不可信输入，防 XXE / billion-laughs）。
 - 语义去重命中时，**保留素材更厚的那条**（material 优先于 signal），薄的那条作为补充素材记录。
+
+### 3.1 两道入库前的闸门（M1 实测踩坑后新增）
+
+**feed 的条目数与时间范围完全不可信**，必须双重设限，且都要在 embedding 之前生效（否则白烧额度）：
+
+| 闸门 | 默认 | 可覆盖字段 | 实测依据 |
+|---|---|---|---|
+| 单次条目上限 | 30 条 | `fetch_config.max_items` | arXiv 的 RSS 一次返回当天全部论文：cs.AI **295 篇**、cs.CL **119 篇**。两个源即可一天灌入 400+ 条，淹没为"日均 10 条候选"设计的选题池 |
+| 时效性窗口 | 14 天 | `fetch_config.max_age_days` | OpenAI 的 news RSS 返回**全部历史归档**：单次 **1115 条**，回溯数年。首次全量采集因此灌入 1004 条旧闻，占当时全库 61%，其中 60% 早于 30 天 |
+
+时效性窗口是更本质的约束——**选题系统要的是新鲜资讯**，`max_items` 只是防止单源体量失控。
+两者顺序：先按 `max_items` 截断条目，再逐条按 `published_at` 过滤，最后才 embedding。
+
+对无 `published_at` 的条目不做时效过滤（宁可多收，交给后续评分环节判断）。
+
+### 3.2 去重 vs 聚类的职责边界
+
+实测发现语义相似度落在 0.85–0.90 区间的条目**无法用阈值区分两种情况**：
+
+| 条目 A | 条目 B | 相似度 | 期望行为 |
+|---|---|---|---|
+| `Agent Plugins 1.0.0 发布：谷歌、亚马逊、微软等支持…` | `Agent Plugins package your skills, tools, and more` | 0.88 | 同一事件的中英双源，**应合并** |
+| `How ChatGPT adoption has expanded` | `From asking to doing: How the world is putting ChatGPT to work` | 0.89 | 两篇不同文章，**不应合并** |
+
+因此明确分工，不试图靠调阈值解决：
+
+- **raw_items 语义去重（0.92）**：只挡"同一条内容重复入库"，保持高阈值（宁可漏合并，不可错杀素材）
+- **同一事件的多源合并**：属 §4 TopicScout 的聚类职责——它有 LLM 语义理解，能判断"同一事件的不同角度"与"两个不同话题"的差别
 
 ## 4. 选题聚合（TopicScout Agent）
 
