@@ -17,7 +17,7 @@ M0 已交付五仓骨架。本 spec 把 SPEC-007 的 M1 里程碑落成可执行
 | 项 | 决定 | 依据 |
 |---|---|---|
 | 数据库 | VPS 自托管 Postgres 17（业务库 + Langfuse 库同实例），每日 pg_dump 推 COS | ADR-004 |
-| Embedding | VPS Ollama + `qwen3-embedding:4b`，MRL 截断前 1024 维并归一化 | ADR-005 |
+| Embedding | **SiliconFlow API `BAAI/bge-m3`（原生 1024 维）**，输入截断 600 字符；本机 Ollama 降为 `EMBED_BACKEND=ollama` 备用 | ADR-005 v2（本机方案实测不可行，见该 ADR §决策变更） |
 | 可观测 | Langfuse 自托管，trace 保留 30 天 | ADR-004 |
 
 ## 3. 数据流（M1 结束时的运行态）
@@ -63,8 +63,8 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - [ ] CI：Go 队列常量与 `schemas/queues.json` 一致性校验（M0 遗留口子）
 
 ### scholar-agents（Python）
-- [ ] `embed()` 封装：Ollama 调用 + 2560→1024 MRL 截断 + L2 归一化（单元测试覆盖维度与范数）
-- [ ] SourcingHandler：拉取/清洗/双重去重；**单源失败隔离**（一个源失败不影响其他源），连续失败计数
+- [x] `embed()` 封装：双后端（SiliconFlow API / 本机 Ollama），维度契约校验 + L2 归一化（13 项单测）
+- [x] SourcingHandler：拉取/清洗/双重去重；**条目级失败隔离**（一条脏数据不毁整批）+ 源级失败隔离
 - [ ] TopicScout：素材聚类 + 角度生成 + 查重；insights 检索留接口（M3 才有数据）
 - [ ] TopicJudge：rubric YAML + 生效权重 → 结构化评分；一票否决逻辑（本 rubric 暂无 veto 维度，但代码路径就位）
 - [ ] Langfuse 接入：每 job 一条 trace，评分作为 score 挂载，trace_id 回写 agent_runs
