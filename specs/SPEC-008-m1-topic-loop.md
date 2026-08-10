@@ -124,6 +124,40 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - 不做评分权重校准（M4，尚无数据）
 - X/Twitter 源不稳则暂时放弃该源，不为其自研爬虫
 
-## 8. 待运营输入
+## 9. 首批信源清单（2026-08-10 逐源实测）
 
-- 首批 ≥8 个信源清单（news / research / tutorial / kol 四类），尤其 kol 类的 X 账号与 Newsletter——该类源出爆款选题密度最高。
+起点是用户指定的聚合源 `aihot.virxact.com`。分析其 50 条的 `author` 字段发现它标注了全部 33 个上游源及类型，据此**绕过聚合层直连上游拿原文**，聚合源退为信号兜底。
+
+### A 层 · material（直连，拿原文）
+
+| 源 | 接入 | 实测正文量 | 类别 | full_text |
+|---|---|---|---|---|
+| MarkTechPost | 原生 RSS | **28 KB 全文** | tutorial | rss_description |
+| Interconnects（Nathan Lambert） | 原生 RSS | **23 KB 全文** | tutorial | rss_description |
+| GitHub Blog | 原生 RSS | **21 KB 全文** | news | rss_description |
+| NVIDIA Blog | 原生 RSS | **12 KB 全文** | news | rss_description |
+| IT之家 | RSSHub `/ithome/it` | 2.3 KB | news | rss_description |
+| arXiv cs.CL / cs.AI | 原生 RSS | 1.6 KB（完整摘要） | research | rss_description |
+| The Verge AI | 原生 RSS | 1.6 KB | news | rss_description |
+| Ars Technica AI | 原生 RSS | 1.5 KB | news | rss_description |
+| The Decoder | 原生 RSS | 0.9 KB | news | rss_description |
+| Apple ML Research | 原生 RSS | 0.6 KB | research | rss_description |
+| Google Developers Blog | 原生 RSS | 0.6 KB | tutorial | rss_description |
+| Hacker News frontpage | `hnrss.org/frontpage` | 0.3 KB | news | fetch_page |
+| TechCrunch AI | 原生 RSS 0.14 KB | 抓页面得 1 KB | news | fetch_page |
+| OpenAI news | 原生 RSS 0.15 KB | 需抓页面 | news | fetch_page |
+| **8 个 X 账号** ：@OpenBMB(1.6KB) / @rohanpaul_ai(1.0KB) / @bcherny(0.8KB) / @krea_ai / @AISafetyMemes / @elonmusk / @suno / @OpenAI | RSSHub `/twitter/user/*`（已配 `TWITTER_AUTH_TOKEN`） | 推文文本即原文 | kol | rss_description |
+
+### B 层 · signal（拿不到原文，摘要兜底）
+
+| 源 | 原因 |
+|---|---|
+| `aihot.virxact.com/feed.xml`（日均约 14 条，自带 category，guid 唯一 50/50） | 二手摘要约 400 字；覆盖 7 个公众号（千问APP、数字生命卡兹克、卡尔的AI沃茨、蚂蚁百灵、小红书技术、面壁智能、火山引擎）+ 下述失败项 + 跨源发现安全网 |
+| @ClaudeDevs、@runwayml | RSSHub 返回 200 但 0 条（推测近期以转推/回复为主被默认过滤），清缓存重试无效 |
+| Anthropic Newsroom、LangChain Blog | 查无可用 RSS（`/rss.xml`、`/news/rss.xml`、`/engineering/rss.xml` 均 404；LangChain 返回非法 XML） |
+
+注：`/feed/full.xml` 经逐条比对**并非全文**（48/50 条 description 与摘要版完全一致，仅 9 条推特来源带 `content:encoded` 且 ≤808B），故用 `feed.xml`。
+
+## 10. 待运营输入
+
+- 补充你自己订阅的高价值源，尤其 **kol 类**（X 账号、Newsletter）——该类源出爆款选题密度最高，也是最难由系统替你猜的部分。

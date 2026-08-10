@@ -8,27 +8,56 @@
 
 每天自动、稳定地把 AI 领域值得写的素材汇入系统，聚合成**带素材支撑的选题候选**，供评分环节消费。质量优先于数量：宁可 10 条高质量候选，不要 100 条噪音。
 
-## 2. 信源分类与首批清单
+## 2. 信源分类与角色
 
-| 类别 | 说明 | 首批示例（M1 落地时确认） |
-|---|---|---|
-| news | 官方动态、产品发布 | Anthropic/OpenAI/DeepMind 官方 blog、Hacker News AI 关键词 |
-| research | 论文、技术深度文 | arXiv cs.CL/cs.AI 精选、Papers with Code trending |
-| tutorial | 学习资料、最佳实践 | 各家官方 docs 更新、优质工程博客 |
-| kol | 大佬分享 | Twitter/X 大佬列表（走 RSSHub 路由）、知名 Newsletter |
+### 2.1 两类角色（M1 实测后新增的核心设计）
 
-- 接入方式优先级：**RSS 原生 > RSSHub 路由 >（少数）Playwright 抓取**。VPS 上已有 RSSHub 实例，直接复用。
+素材的**厚薄**直接决定文章质量上限（"垃圾进垃圾出"），而不同信源给到的内容量差两个数量级。因此每个信源标注角色，`sources.fetch_config` 承载：
+
+| 角色 | 含义 | 采集策略 | 对写作的意义 |
+|---|---|---|---|
+| `material` | 能拿到原文/完整摘要 | RSS 全文字段，或抓原文页 | 可支撑知乎/公众号深度长文 |
+| `signal` | 只能拿到二手摘要（几百字） | 只存摘要 | 够判断"值不值得写"，深度素材需 M2 增强环节补 |
+
+`fetch_config` 字段：
+- `role`: `material` | `signal`
+- `full_text`: `rss_description`（RSS 里已有足够正文）| `fetch_page`（需 trafilatura 抓原文页）
+
+判定依据不是猜测而是实测：M1 开工前逐源验证了正文获取量，结果见 SPEC-008 §3。
+
+### 2.2 类别（沿用 SPEC-002 的 source_category）
+
+| 类别 | 说明 |
+|---|---|
+| news | 官方动态、产品发布 |
+| research | 论文、技术深度文 |
+| tutorial | 学习资料、最佳实践 |
+| kol | 大佬分享（X 账号、Newsletter） |
+
+- 接入方式优先级：**RSS 原生 > RSSHub 路由 > trafilatura 抓页面 > 二手摘要兜底**。VPS 已有 RSSHub 实例（已配 `TWITTER_AUTH_TOKEN` / `ZHIHU_COOKIES` / `GITHUB_ACCESS_TOKEN`），直接复用。
 - 每个信源带 `weight`（初始人工设定 0.5–0.8），后续由反馈闭环校准（SPEC-006：某信源孵化的文章表现持续好 → 权重上调）。
-- 支持**手动投喂**：client 上贴一个 URL，core 抓取正文入库，等同一条 raw_item（很多好选题来自你自己刷到的东西，这个入口必须顺手）。
+- 支持**手动投喂**：client 上贴一个 URL，抓取正文入库，等同一条 raw_item（很多好选题来自自己刷到的东西，这个入口必须顺手）。
+
+### 2.3 明确拿不到的：微信公众号
+
+实测 RSSHub 的 10 个 `/wechat/*` 路由**全部是第三方镜像的代理**（`ce` 返回 503、`uread` 超时），RSSHub 自身抓不了微信；直接抓 `mp.weixin.qq.com` 页面被反爬拦截（trafilatura 仅提取到 36 字符噪音）。
+
+结论：**不为微信自研爬虫**（SPEC-008 §7）。公众号内容通过 `signal` 型聚合源的摘要覆盖。实际损失有限——重要新闻必被多个网页源覆盖，M2 素材增强可按关键词找到可抓取的替代来源。
 
 ## 3. 采集流水线
 
 ```
-core cron 每小时投递 pgmq job ──▶ agents 侧 fetch(source) ──▶ 清洗/正文提取 ──▶ 精确去重(content_hash)
-   ──▶ embedding ──▶ 语义去重(与近14天 raw_items 相似度 > 0.92 则合并) ──▶ 入库 status=new
+core cron 每小时投递 pgmq job ──▶ agents 侧 fetch(source)
+   ──▶ role=material 且 full_text=fetch_page 时抓原文页（trafilatura）
+   ──▶ 清洗 ──▶ 精确去重（guid 优先，回退 content_hash）
+   ──▶ embedding（Ollama，1024d）──▶ 语义去重（近 14 天相似度 > 0.92 合并）
+   ──▶ 入库 status=new
 ```
 
-清洗规则：HTML → Markdown（turndown），去广告/导航噪音，截断超长正文（保留前 8k token + 摘要）。
+- 清洗规则：HTML → 纯文本/Markdown（trafilatura），去广告导航，截断超长正文（保留前 8k token）。
+- **去重键优先用 feed 的 `guid`**（实测聚合源 guid 唯一性 50/50），无 guid 时回退 `sha256(正文)`。
+- **XML 解析必须用 `defusedxml`**（第三方 feed 是不可信输入，防 XXE / billion-laughs）。
+- 语义去重命中时，**保留素材更厚的那条**（material 优先于 signal），薄的那条作为补充素材记录。
 
 ## 4. 选题聚合（TopicScout Agent）
 
