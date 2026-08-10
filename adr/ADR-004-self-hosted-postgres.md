@@ -1,0 +1,41 @@
+# ADR-004 · 数据库自托管于 VPS，放弃 Supabase 托管
+
+- 状态：Accepted
+- 日期：2026-08-08
+- 相关：ADR-003（pgmq）、SPEC-001
+
+## 背景
+
+SPEC-001 v1/v2 选 Supabase 托管 Postgres，理由是零运维 + 用户已有使用经验。M1 开工前拍板可观测方案时，用户选择 **Langfuse 自托管**，这改变了前提：
+
+- Langfuse 自身需要一个 Postgres 存 trace（每次 LLM 调用的完整 prompt/输出，增量大）；
+- Supabase 免费版 500MB 容量，装不下 trace 数据；
+- 既然 VPS 上必须为 Langfuse 起 Postgres，再额外依赖一个云端库就是重复组件。
+
+同时 M0 已产出可用镜像 `scholar-infra/postgres/Dockerfile`（pgvector 0.8.6 + pgmq 1.12，pg17），原为本地开发准备，可直接用于生产。
+
+## 决策
+
+**业务库与 Langfuse 库共用 VPS 上一个自托管 Postgres 实例**（同实例、不同 database/schema），不再使用 Supabase。
+
+配套硬性要求（缺一不可，否则自托管风险不可接受）：
+
+1. **每日备份**：`pg_dump` 定时任务，产物加密后推腾讯云 COS，本地保留最近 7 份；恢复流程需实测一次并记录在 scholar-infra README。
+2. **磁盘监控告警**：VPS 磁盘使用率 > 85% 告警（当前 72%，57G/80G）。
+3. **Langfuse trace 保留期设上限**（初始 30 天），防止 trace 无限增长吃满磁盘。
+4. 数据卷用 named volume 并纳入备份范围；compose 重建不得丢数据。
+
+## 理由
+
+1. 少一个外部依赖：pgmq/pgvector 由自建镜像内置，业务库与队列、向量、Langfuse 同处一地。
+2. 容量与成本：不受免费额度限制；VPS 已付费，边际成本为 0。
+3. 延迟：core/agents 与数据库同机，省去公网往返（写作/评分任务读写频繁）。
+4. 数据主权：内容资产、prompt trace 全在自己手里。
+5. 学习收益：数据库运维（备份/恢复/监控）本身属于用户想练的生产级服务工程。
+
+## 后果与代价
+
+- **运维责任转移到自己**：备份、升级、故障恢复都要自己做——由上述四条硬性要求兜底。
+- 单点：VPS 挂了业务全停（单人内容系统可接受；备份保证数据不丢）。
+- 磁盘压力上升：需持续关注（trace 保留期 + 告警）。
+- 若未来需要多地部署或托管化，Postgres 标准协议保证可迁回任何托管服务（无锁定）。

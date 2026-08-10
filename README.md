@@ -16,6 +16,7 @@
 | SPEC-005 | [写作 Agent 军团](specs/SPEC-005-writing-agents.md) | 平台专家 Agent、格式规范、扩展机制 |
 | SPEC-006 | [记忆与反馈闭环](specs/SPEC-006-memory-and-feedback-loop.md) | 发帖数据回流、反思机制、经验库 |
 | SPEC-007 | [路线图](specs/SPEC-007-roadmap.md) | 里程碑 M0–M4、验收标准 |
+| SPEC-008 | [M1 实施计划](specs/SPEC-008-m1-topic-loop.md) | 选题闭环的交付清单、实施顺序、验收 |
 
 ## 组织仓库规划（Polyrepo）
 
@@ -32,4 +33,12 @@
 
 - **Spec 先行**：新功能先提 spec PR（或修订现有 spec），达成一致后再动代码。
 - **ADR**：重大技术决策记录在 `adr/` 目录，编号递增，只增不删（被推翻的标记 Superseded）。
+
+| ADR | 决策 |
+|---|---|
+| [001](adr/ADR-001-go-core-python-agents.md) | 后端改 Go core + Python agents（弃全栈 TS） |
+| [002](adr/ADR-002-self-built-runtime-dual-provider.md) | 自研 agent runtime + 双协议 ModelProvider |
+| [003](adr/ADR-003-pgmq-over-redis.md) | 任务队列用 pgmq（事务性入队，无 Redis） |
+| [004](adr/ADR-004-self-hosted-postgres.md) | Postgres 自托管于 VPS（弃 Supabase），Langfuse 同实例 |
+| [005](adr/ADR-005-ollama-embedding.md) | Embedding 用 VPS Ollama qwen3-embedding:4b（1024d） |
 - **契约变更**：`scholar-shared` 的任何 breaking change 必须先在 SPEC-002 中体现。

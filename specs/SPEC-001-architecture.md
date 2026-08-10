@@ -14,11 +14,11 @@
 | 业务核心 core | **Go 1.23+：chi（路由）+ sqlc（类型安全 SQL）+ goose（迁移）+ oapi-codegen（OpenAPI-first）** | 生产级服务工程的学习主场；单二进制部署、低资源占用（VPS 友好）；全部是社区主流无魔法的工具 |
 | Agent 运行时 agents | **Python 3.12：uv（包管理）+ Pydantic + 自研轻量 agent runtime** | AI 生态母语：评分校准的统计分析（pandas/scipy）、Langfuse Python SDK 一等支持；自研 runtime 学习收益最大（ADR-002） |
 | 模型接入 | **Provider 抽象层：AnthropicProvider + OpenAICompatProvider 双协议** | OpenAI 协议已是行业通用协议（DeepSeek/Qwen/Kimi/GLM/OpenRouter/Ollama 全兼容），Anthropic 协议有独特能力（caching/thinking）；按任务路由模型，改配置即切换（ADR-002） |
-| 数据库 | **PostgreSQL（Supabase 托管）+ pgvector** | 已有 Supabase 经验；向量检索不引入独立组件 |
-| 任务队列 | **pgmq（Supabase Queues 底层）** | 跨语言（本质是 SQL）；**入队与业务状态变更同事务**，保证编排正确性；VPS 无需 Redis（ADR-003） |
+| 数据库 | **PostgreSQL 17 自托管于 VPS + pgvector**（业务库与 Langfuse 库同实例，ADR-004） | 少一个外部依赖；容量不受免费额度限制；与 core/agents 同机低延迟；数据主权在己。代价是备份/监控自负（ADR-004 硬性要求） |
+| 任务队列 | **pgmq**（Postgres 扩展，镜像内置） | 跨语言（本质是 SQL）；**入队与业务状态变更同事务**，保证编排正确性；VPS 无需 Redis（ADR-003） |
 | 定时调度 | core 内置 cron（robfig/cron）投递 pgmq job | 调度逻辑与编排同处一地，可观测 |
 | 契约 | **JSON Schema + OpenAPI 为源，codegen 三端**（详见 §3） | 语言中立，三种语言共享一份契约 |
-| Agent 可观测 | **Langfuse（自托管 VPS）** | trace 每次运行的 prompt/成本/评分 |
+| Agent 可观测 | **Langfuse 自托管于 VPS** | trace 每次运行的 prompt/成本/评分；trace 保留 30 天防磁盘膨胀（ADR-004） |
 | 采集 | **RSSHub（VPS 已有实例，复用）+ Python 侧 feedparser/trafilatura** | 采集与清洗划入 agents 侧的 Python 生态（见 §2 分工） |
 | 对象存储 | 预留：腾讯云 COS（配图/封面阶段再接） | 与现有 aicave 基建一致 |
 | 部署 | client → **Vercel**；core/agents/Langfuse → **VPS Docker Compose**（复用现有 nginx） | 长任务与常驻 worker 不适合 serverless |
@@ -65,7 +65,7 @@
 └──────────────────────┬──────────────────────┘
                        ▼
         ┌─────────────────────────────┐
-        │ PostgreSQL (Supabase)       │
+        │ PostgreSQL 17 (VPS 自托管)   │
         │  业务表 + pgvector + pgmq    │
         └─────────────────────────────┘
 ```
@@ -108,7 +108,7 @@ scholar-infra   (引用各仓库镜像/产物，不被依赖)
 
 ## 5. 环境与配置
 
-- 环境：`local`（docker compose 起 Postgres——含 pgmq/pgvector 扩展——即可全栈本地跑）→ `prod`（VPS + Supabase）。
+- 环境：`local`（docker compose 起 Postgres——含 pgmq/pgvector 扩展——即可全栈本地跑）→ `prod`（VPS，同一镜像自托管 + 每日 pg_dump 备份推 COS，ADR-004）。
 - 密钥纪律（硬性）：见各仓库 .gitignore + gitleaks CI + GitHub push protection 三层防线；密钥只存 VPS 部署工作区 / GitHub Actions secrets / 本地 .env。
 - 模型路由与预算：agents 的 `model_routing.yaml` 按任务配置 provider/model；内置每日 token 预算熔断 + 告警。
 
@@ -121,6 +121,6 @@ scholar-infra   (引用各仓库镜像/产物，不被依赖)
 ## 7. 开放问题
 
 - [ ] gen/go 以 go module 方式被 core 引用：直接 `require github.com/scholars-ai/scholar-shared/gen/go` 还是 go.work？（M0 实操定）
-- [ ] Langfuse 自托管 vs 云免费版：VPS 磁盘 66%，需评估（M1 决定）
+- [x] Langfuse：自托管于 VPS，与业务库共用 Postgres 实例，trace 保留 30 天（ADR-004）
 - [ ] 公众号排版（md → 微信富文本）方案（M2 决定）
-- [ ] embedding 模型选择：VPS 已有 Ollama 可自托管 vs API（M1 决定，影响 vector 维度=1024 的假设）
+- [x] embedding：VPS Ollama + qwen3-embedding:4b，MRL 截断 1024 维（ADR-005）
