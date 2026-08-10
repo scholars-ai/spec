@@ -77,9 +77,9 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - [ ] 手动投喂入口（高频动作，一键贴 URL）
 
 ### scholar-infra + 部署
-- [ ] `compose.prod.yaml` 增加 postgres 服务（自建镜像）+ named volume；langfuse 指向同实例独立 database
-- [ ] 备份：每日 `pg_dump` → 加密 → 推腾讯云 COS，本地保留 7 份；**恢复流程实测并记录**
-- [ ] 磁盘监控告警（> 85%）
+- [x] `compose.prod.yaml` 增加 postgres 服务（自建镜像）+ named volume；langfuse 指向同实例独立 database
+- [x] 备份：每日 `pg_dump` → 加密 → 本地保留 7 份；**恢复流程已实测**（扩展/枚举/pgmq 队列/HNSW 索引/goose 版本全部还原）。⚠️ COS 离机副本待配 `coscli`（当前仅本地副本）
+- [x] 磁盘监控告警（> 85%），cron 每 6h
 - [ ] GHCR 镜像构建 CI（core/agents）+ deploy.sh 首次真实部署
 - [ ] nginx 反代（复用现有实例）：client 访问 core API
 
