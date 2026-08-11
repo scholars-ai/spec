@@ -40,5 +40,5 @@
 | [002](adr/ADR-002-self-built-runtime-dual-provider.md) | 自研 agent runtime + 双协议 ModelProvider |
 | [003](adr/ADR-003-pgmq-over-redis.md) | 任务队列用 pgmq（事务性入队，无 Redis） |
 | [004](adr/ADR-004-self-hosted-postgres.md) | Postgres 自托管于 VPS（弃 Supabase），Langfuse 同实例 |
-| [005](adr/ADR-005-ollama-embedding.md) | Embedding 用 VPS Ollama qwen3-embedding:4b（1024d） |
+| [005](adr/ADR-005-ollama-embedding.md) | Embedding 走 SiliconFlow bge-m3（1024d）；本机 Ollama 降为备用 |
 - **契约变更**：`scholar-shared` 的任何 breaking change 必须先在 SPEC-002 中体现。

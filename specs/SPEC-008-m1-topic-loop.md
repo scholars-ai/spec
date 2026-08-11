@@ -3,7 +3,7 @@
 - 状态：Accepted
 - 日期：2026-08-08
 - 依赖：SPEC-003（采集）、SPEC-004（评分）、SPEC-007 §M1
-- 前置决策：ADR-004（DB 自托管）、ADR-005（Ollama embedding）
+- 前置决策：ADR-004（DB 自托管）、ADR-005 v2（embedding 走 SiliconFlow API，Ollama 降为备用）
 
 M0 已交付五仓骨架。本 spec 把 SPEC-007 的 M1 里程碑落成可执行清单。
 
@@ -23,20 +23,21 @@ M0 已交付五仓骨架。本 spec 把 SPEC-007 的 M1 里程碑落成可执行
 ## 3. 数据流（M1 结束时的运行态）
 
 ```
-core cron（每小时）──▶ 对每个 enabled source 投递 source_fetch（事务性入队）
+core scheduler tick（每分钟，仅为检查粒度）
+  读 DB 调度配置 ──▶ 到期的 source 投递 source_fetch（事务性入队）
                             │
 agents SourcingHandler ◀────┘
   feedparser 拉取 → trafilatura 清洗 → content_hash 精确去重
-  → Ollama embedding（1024d）→ 语义去重（近 14 天 cos > 0.92 合并）
+  → embedding（SiliconFlow bge-m3，1024d）→ 语义去重（近 14 天 cos > 0.92）
   → raw_items(status=new)
                             │
-core cron（每日 2 次）──▶ topic_scout
+core scheduler ──▶ 到期的 topic_scout（默认每日 2 次，可配）
                             │
 agents TopicScout（自研 loop 首次实战）
   聚类素材 → 每簇提 1–3 个选题角度 → 与既有 topics 向量查重
   → topics(status=candidate)
                             │
-core harvester ──▶ 对新 candidate 投递 topic_evaluate
+core harvester ──▶ 新 candidate **事件驱动**立即投递 topic_evaluate（不等固定时刻）
                             │
 agents TopicJudge（structured output 首次实战）
   读 rubrics/topic.v1.yaml + DB weight_sets → 维度分 + 理由
@@ -47,18 +48,49 @@ core harvester ──▶ 状态机 candidate→scored；≥75 推荐 / 60–75 �
 scholar-client 选题看板 ──▶ 人工 approve / reject（scored → approved / rejected）
 ```
 
+### 3.1 调度是配置，不是硬编码（2026-08-11 修订）
+
+初版把「每小时采集、每日 2 次 scout」写成固定 cron 表达式。这是**默认运行策略，不是业务规则**，因此改为存 DB、由 client 修改：
+
+| job | 调度方式 | 默认值 | 可配粒度 |
+|---|---|---|---|
+| `source_fetch` | interval | 每 60 分钟 | **全局默认 + 每个 source 单独覆盖**；可暂停；可手动立即触发 |
+| `topic_scout` | daily times | 08:00 / 20:00（Asia/Shanghai） | 执行时刻、时区、启停、`min_new_items`（新素材不足则跳过） |
+| `topic_evaluate` | **event-driven** | candidate 产生即投递 | 启停、并发上限、每日 token 预算 |
+
+三条设计纪律：
+
+1. **唯一写死的是 scheduler 的 tick 粒度（1 分钟）**——它只是内部检查频率，不是业务策略。所有业务频率来自 DB。
+2. **`topic_evaluate` 不设固定时刻**。评分是对「新 candidate 出现」的响应；固定每日跑两次会让候选白等半天。原初版把它和 scout 混为一谈是设计错误。
+3. **按 source 差异化采集**：arXiv 每 6 小时、活跃博客每 30 分钟、不稳定源直接暂停——统一每小时既浪费请求也可能触发上游限流（RSSHub / X 尤其敏感）。
+
+调度正确性要求：
+
+- 同一 source 同一时间窗口不得重复投递（`next_run_at` + 唯一约束）
+- 多 core 实例并存时不重复调度（advisory lock）
+- 配置变更 ≤ 1 个 tick 生效
+- source 暂停后不再产生新 job，已领取的 job 正常跑完
+- 单条配置非法不得导致整个 scheduler 崩溃（跳过并告警）
+- 每次调度留痕：schedule key、触发时间、job id
+
+### 3.2 环境变量与 DB 配置的边界
+
+`DEFAULT_*` 环境变量**只用于首次 seed**（DB 无配置时的初始值）。一旦用户在 client 改过，运行时真相只在 DB——不再回读环境变量，否则重启会静默覆盖用户设置。
+
 ## 4. 交付清单
 
 ### scholar-shared（契约先行）
-- [ ] `openapi/core.yaml` 扩展：sources CRUD、手动投喂 URL、topic approve/reject
+- [ ] `openapi/core.yaml` 扩展：sources CRUD、手动投喂 URL、topic approve/reject、**调度设置 API**
 - [ ] 新增 TopicJudge 结构化输出 schema（维度分 + rationale，供 `complete_structured` 校验）
+- [ ] `SchedulerSettings` / `SourceFetchConfig` schema（§3.1 的配置结构）
 - [ ] codegen 三端并提交生成物
 
 ### scholar-core（Go）
 - [ ] sources CRUD API + sqlc 查询
 - [ ] 手动投喂 API：POST URL → 入 raw_items 流程
-- [ ] cron 调度（robfig/cron）：每小时 source_fetch、每日 2 次 topic_scout；调度留痕
-- [ ] harvester：轮询结果表推进状态机（唯一写入口原则不破）
+- [ ] **动态 scheduler**：1 分钟 tick 读 DB 配置；source 级 interval 覆盖；scout 按配置时刻；调度留痕 + 防重投
+- [ ] **调度设置 API**（GET/PATCH）+ 首次 seed 默认值
+- [ ] harvester：轮询结果表推进状态机（唯一写入口原则不破）；**candidate 出现即投递 topic_evaluate**
 - [ ] topic approve/reject API（非法流转返回 409）
 - [ ] CI：Go 队列常量与 `schemas/queues.json` 一致性校验（M0 遗留口子）
 
@@ -73,7 +105,8 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 ### scholar-client（Next.js）
 - [ ] 引入 shadcn/ui + TanStack Query
 - [ ] 选题看板：候选列表（分数排序）、维度分可视化、评分理由展开、approve/reject
-- [ ] 信源管理页：增删改、启停、最近抓取状态与连续失败告警
+- [ ] 信源管理页：增删改、启停、**单独采集频率覆盖**、手动立即采集、最近抓取状态与连续失败告警
+- [ ] **调度设置页**：全局采集间隔、scout 执行时刻/时区/min_new_items、evaluate 启停与并发。用表单生成 cron，不让用户手写表达式
 - [ ] 手动投喂入口（高频动作，一键贴 URL）
 
 ### scholar-infra + 部署
@@ -116,6 +149,13 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - [ ] agents 崩溃重启后 job 不丢（pgmq visibility timeout 实测）
 - [ ] 数据库备份产出 + **恢复演练成功**
 - [ ] CI：队列名一致性校验生效；GHCR 镜像可部署
+
+**调度可配（§3.1）**
+- [ ] client 改采集间隔后 ≤ 1 个 tick 生效，且**重启 core 不被环境变量覆盖**
+- [ ] 单个 source 设为 6 小时 / 暂停，各自按自身配置执行，不受全局默认影响
+- [ ] scout 改执行时刻后按新时刻触发；`min_new_items` 不满足时跳过并留痕
+- [ ] candidate 产生到 `topic_evaluate` 入队 < 1 分钟（事件驱动，非固定时刻）
+- [ ] 非法配置（时间格式/间隔越界/重复时刻）被 API 拒绝，scheduler 不崩
 
 ## 7. 明确不做（防止范围膨胀）
 
