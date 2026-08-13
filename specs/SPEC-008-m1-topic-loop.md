@@ -204,7 +204,9 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 ## 11. 生产验收记录
 
 - **VPS 全链路**：手动投喂 `https://www.python.org/downloads/release/python-3130/` 后，`raw_items` 入库并被定向 Scout 处理；约 31 秒内生成 3 条 candidate，随后 3 条均完成 TopicJudge，状态均为 `scored`，总分为 `91.76 / 81.18 / 81.18`。
+- **自动调度**：2026-08-14 05:12（Asia/Shanghai）由 core scheduler 按 DB 配置自动投递 `topic_scout`，5 条素材批次约 50 秒完成，随后 8 条 Judge 任务全部成功；当前调度已恢复默认 `08:00/20:00`，普通定时 Scout 单 job 默认最多处理 5 条素材。
+- **语义重复检查**：截至 2026-08-14 05:28，生产库 25 条 topic 在系统查重阈值 `cosine >= 0.92` 下重复率为 `0%`（最高 pair similarity 约 `0.8605`）。该结果是当前样本快照，不替代自然日连续观察。
 - **业务留痕**：本次 3 条 Judge 记录均包含 `rubric_version=topic@v1`、`weight_version=1`、`vetoed_dimension=null`、`agent_run_id`；Scout/Judge 的 `agent_runs` 均包含模型、prompt version、输入/输出 token 和 trace ID。
 - **Langfuse 对账**：本次验收的 1 条 Scout trace 与 3 条 Judge trace 均存在 generation；Judge 的 3 条 trace 均存在 `topic_total_score` score。生产 Langfuse observation 能查到 prompt、结构化输出、模型与 token usage；成本字段在供应商未返回价格或 Langfuse 未配置对应价格时为空。
 - **备份恢复**：生产备份 `scholar` 与 `langfuse` 均完成加密完整性校验，并成功上传 COS、回读校验；从 COS 下载后恢复到临时库，业务库核对出 `17` 条 topics、`16` 条 topic_evaluations，`pgmq`/`vector` 扩展存在，Langfuse 临时库恢复出 `72` 条 observations。
-- **仍需完成**：自然日连续运行观察（每天自动 ≥10 条且语义重复率 <10%）、人工抽查 20 条评分理由（认可率 ≥80%），以及确认 Scholar 域名后配置 nginx/client 公网部署。这三项不能用受控投喂或自动检查替代。
+- **仍需完成**：自然日连续运行观察（每天自动 ≥10 条且语义重复率 <10%）、人工抽查 20 条评分理由（认可率 ≥80%），以及确认 Scholar 域名后配置 nginx/client 公网部署。这三项不能用单次自动触发、受控投喂或自动检查替代。
