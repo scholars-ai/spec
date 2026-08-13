@@ -90,14 +90,14 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - [ ] 手动投喂 API：POST URL → 入 raw_items 流程
 - [ ] **动态 scheduler**：1 分钟 tick 读 DB 配置；source 级 interval 覆盖；scout 按配置时刻；调度留痕 + 防重投
 - [ ] **调度设置 API**（GET/PATCH）+ 首次 seed 默认值
-- [ ] harvester：轮询结果表推进状态机（唯一写入口原则不破）；**candidate 出现即投递 topic_evaluate**
+- [x] harvester：轮询结果表推进状态机（唯一写入口原则不破）；**candidate 出现即投递 topic_evaluate**
 - [ ] topic approve/reject API（非法流转返回 409）
 - [ ] CI：Go 队列常量与 `schemas/queues.json` 一致性校验（M0 遗留口子）
 
 ### scholar-agents（Python）
 - [x] `embed()` 封装：双后端（SiliconFlow API / 本机 Ollama），维度契约校验 + L2 归一化（13 项单测）
 - [x] SourcingHandler：拉取/清洗/双重去重；**条目级失败隔离**（一条脏数据不毁整批）+ 源级失败隔离
-- [ ] TopicScout：素材聚类 + 角度生成 + 查重；insights 检索留接口（M3 才有数据）
+- [x] TopicScout：素材聚类 + 角度生成 + 查重；insights 检索留接口（M3 才有数据）
 - [x] TopicJudge：rubric YAML + 生效权重 → 结构化评分；一票否决逻辑（本 rubric 暂无 veto 维度，但代码路径就位）
 - [x] Langfuse 接入：每 job 一条 trace，评分作为 score 挂载，trace_id 回写 agent_runs
 - [x] 每个 LLM 调用通过 Langfuse trace 记录 prompt、输出、输入/输出 token 和成本；不在应用层重复实现每日 token 预算，供应商 API key 负责额度限制
@@ -141,7 +141,7 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 
 **质量（M1 最重要的软验收）**
 - [ ] 人工抽查 20 条评分，**理由认可率 ≥ 80%**；不认可的能归因为 rubric 定义问题或模型问题
-- [ ] 每次评分记录 rubric_version 与权重版本，可回放
+- [x] 每次评分记录 rubric_version 与权重版本，可回放
 
 **工程**
 - [x] 全链路 Langfuse trace 可查（prompt / 输出 / token / 成本）
@@ -154,7 +154,7 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - [ ] client 改采集间隔后 ≤ 1 个 tick 生效，且**重启 core 不被环境变量覆盖**
 - [ ] 单个 source 设为 6 小时 / 暂停，各自按自身配置执行，不受全局默认影响
 - [ ] scout 改执行时刻后按新时刻触发；`min_new_items` 不满足时跳过并留痕
-- [ ] candidate 产生到 `topic_evaluate` 入队 < 1 分钟（事件驱动，非固定时刻）
+- [x] candidate 产生到 `topic_evaluate` 入队 < 1 分钟（事件驱动，非固定时刻）
 - [ ] 非法配置（时间格式/间隔越界/重复时刻）被 API 拒绝，scheduler 不崩
 
 ## 7. 明确不做（防止范围膨胀）
