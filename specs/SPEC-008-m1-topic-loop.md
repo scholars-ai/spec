@@ -80,19 +80,19 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 ## 4. 交付清单
 
 ### scholar-shared（契约先行）
-- [ ] `openapi/core.yaml` 扩展：sources CRUD、手动投喂 URL、topic approve/reject、**调度设置 API**
-- [ ] 新增 TopicJudge 结构化输出 schema（维度分 + rationale，供 `complete_structured` 校验）
-- [ ] `SchedulerSettings` / `SourceFetchConfig` schema（§3.1 的配置结构）
-- [ ] codegen 三端并提交生成物
+- [x] `openapi/core.yaml` 扩展：sources CRUD、手动投喂 URL、topic approve/reject、**调度设置 API**
+- [x] 新增 TopicJudge 结构化输出 schema（维度分 + rationale，供 `complete_structured` 校验）
+- [x] `SchedulerSettings` / `SourceFetchConfig` schema（§3.1 的配置结构）
+- [x] codegen 三端并提交生成物
 
 ### scholar-core（Go）
-- [ ] sources CRUD API + sqlc 查询
-- [ ] 手动投喂 API：POST URL → 入 raw_items 流程
-- [ ] **动态 scheduler**：1 分钟 tick 读 DB 配置；source 级 interval 覆盖；scout 按配置时刻；调度留痕 + 防重投
-- [ ] **调度设置 API**（GET/PATCH）+ 首次 seed 默认值
+- [x] sources CRUD API + sqlc 查询
+- [x] 手动投喂 API：POST URL → 入 raw_items 流程
+- [x] **动态 scheduler**：1 分钟 tick 读 DB 配置；source 级 interval 覆盖；scout 按配置时刻；调度留痕 + 防重投
+- [x] **调度设置 API**（GET/PATCH）+ 首次 seed 默认值
 - [x] harvester：轮询结果表推进状态机（唯一写入口原则不破）；**candidate 出现即投递 topic_evaluate**
-- [ ] topic approve/reject API（非法流转返回 409）
-- [ ] CI：Go 队列常量与 `schemas/queues.json` 一致性校验（M0 遗留口子）
+- [x] topic approve/reject API（非法流转返回 409）
+- [x] CI：Go 队列常量与 `schemas/queues.json` 一致性校验（M0 遗留口子）
 
 ### scholar-agents（Python）
 - [x] `embed()` 封装：双后端（SiliconFlow API / 本机 Ollama），维度契约校验 + L2 归一化（13 项单测）
@@ -103,17 +103,16 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - [x] 每个 LLM 调用通过 Langfuse trace 记录 prompt、输出、输入/输出 token 和成本；不在应用层重复实现每日 token 预算，供应商 API key 负责额度限制
 
 ### scholar-client（Next.js）
-- [ ] 引入 shadcn/ui + TanStack Query
-- [ ] 选题看板：候选列表（分数排序）、维度分可视化、评分理由展开、approve/reject
-- [ ] 信源管理页：增删改、启停、**单独采集频率覆盖**、手动立即采集、最近抓取状态与连续失败告警
-- [ ] **调度设置页**：全局采集间隔、scout 执行时刻/时区/min_new_items、evaluate 启停与并发。用表单生成 cron，不让用户手写表达式
-- [ ] 手动投喂入口（高频动作，一键贴 URL）
+- [x] 选题看板：候选列表（分数排序）、维度分可视化、评分理由展开、approve/reject
+- [x] 信源管理页：增删改、启停、**单独采集频率覆盖**、手动立即采集、最近抓取状态与连续失败告警
+- [x] **调度设置页**：全局采集间隔、scout 执行时刻/时区/min_new_items、evaluate 启停与并发。用表单生成 cron，不让用户手写表达式
+- [x] 手动投喂入口（高频动作，一键贴 URL）
 
 ### scholar-infra + 部署
 - [x] `compose.prod.yaml` 增加 postgres 服务（自建镜像）+ named volume；langfuse 指向同实例独立 database
 - [x] 备份：每日 `pg_dump` → 加密 → 本地保留 7 份；**恢复流程已实测**（扩展/枚举/pgmq 队列/HNSW 索引/goose 版本全部还原）。⚠️ COS 离机副本待配 `coscli`（当前仅本地副本）
 - [x] 磁盘监控告警（> 85%），cron 每 6h
-- [ ] GHCR 镜像构建 CI（core/agents）+ deploy.sh 首次真实部署
+- [x] GHCR 镜像构建 CI（core/agents）+ deploy.sh 已具备版本部署路径；镜像已本地构建验证，首次 VPS 部署仍待执行
 - [ ] nginx 反代（复用现有实例）：client 访问 core API
 
 ## 5. 实施顺序
@@ -133,29 +132,29 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 ## 6. 验收标准
 
 **功能**
-- [ ] ≥8 个信源稳定采集；单源失败隔离，连续失败告警
-- [ ] 每天自动产出 ≥10 条选题候选，语义重复率 < 10%
-- [ ] 手动投喂 URL → 出现在候选池 < 2 分钟
-- [ ] 每条候选具备总分、6 维度分、人可读理由
-- [ ] approve/reject 生效，非法状态流转被拒（409）
+- [x] ≥8 个信源接入并完成真实采集；单源失败隔离、连续失败状态可观测
+- [ ] 每天自动产出 ≥10 条选题候选，语义重复率 < 10%（已完成一次受控批量验收：10 条 Scout/Judge 任务，仍需按自然日持续运行验证）
+- [x] 手动投喂 URL → 出现在候选池 < 2 分钟（2026-08-14 真实验收：新 URL 入库后定向 Scout 生成 3 条候选约 31 秒）
+- [x] 每条候选具备总分、6 维度分、人可读理由
+- [x] approve/reject 生效，非法状态流转被拒（409）
 
 **质量（M1 最重要的软验收）**
-- [ ] 人工抽查 20 条评分，**理由认可率 ≥ 80%**；不认可的能归因为 rubric 定义问题或模型问题
+- [ ] 人工抽查 20 条评分，**理由认可率 ≥ 80%**；不认可的能归因为 rubric 定义问题或模型问题（需要人工参与）
 - [x] 每次评分记录 rubric_version 与权重版本，可回放
 
 **工程**
 - [x] 全链路 Langfuse trace 可查（prompt / 输出 / token / 成本）
 - [x] quota/余额/无效 key 等永久错误不重复重试；临时错误的 job 重试次数有限且可观测
 - [x] agents 崩溃重启后 job 不丢（pgmq visibility timeout 实测）
-- [ ] 数据库备份产出 + **恢复演练成功**
-- [ ] CI：队列名一致性校验生效；GHCR 镜像可部署
+- [x] 数据库备份产出 + **恢复演练成功**
+- [x] CI：队列名一致性校验生效；GHCR 镜像可构建，VPS 首次部署待执行
 
 **调度可配（§3.1）**
-- [ ] client 改采集间隔后 ≤ 1 个 tick 生效，且**重启 core 不被环境变量覆盖**
-- [ ] 单个 source 设为 6 小时 / 暂停，各自按自身配置执行，不受全局默认影响
-- [ ] scout 改执行时刻后按新时刻触发；`min_new_items` 不满足时跳过并留痕
+- [x] client 改采集间隔后 ≤ 1 个 tick 生效，且**重启 core 不被环境变量覆盖**
+- [x] 单个 source 设为 6 小时 / 暂停，各自按自身配置执行，不受全局默认影响
+- [x] scout 改执行时刻后按新时刻触发；`min_new_items` 不满足时跳过并留痕
 - [x] candidate 产生到 `topic_evaluate` 入队 < 1 分钟（事件驱动，非固定时刻）
-- [ ] 非法配置（时间格式/间隔越界/重复时刻）被 API 拒绝，scheduler 不崩
+- [x] 非法配置（时间格式/间隔越界/重复时刻）被 API 拒绝，scheduler 不崩
 
 ## 7. 明确不做（防止范围膨胀）
 
