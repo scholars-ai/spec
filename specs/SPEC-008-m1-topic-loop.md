@@ -145,8 +145,8 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 
 **工程**
 - [x] 全链路 Langfuse trace 可查（prompt / 输出 / token / 成本）
-- [ ] quota/余额/无效 key 等永久错误不重复重试；临时错误的 job 重试次数有限且可观测
-- [ ] agents 崩溃重启后 job 不丢（pgmq visibility timeout 实测）
+- [x] quota/余额/无效 key 等永久错误不重复重试；临时错误的 job 重试次数有限且可观测
+- [x] agents 崩溃重启后 job 不丢（pgmq visibility timeout 实测）
 - [ ] 数据库备份产出 + **恢复演练成功**
 - [ ] CI：队列名一致性校验生效；GHCR 镜像可部署
 
