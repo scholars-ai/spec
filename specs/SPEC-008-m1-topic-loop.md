@@ -56,7 +56,7 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 |---|---|---|---|
 | `source_fetch` | interval | 每 60 分钟 | **全局默认 + 每个 source 单独覆盖**；可暂停；可手动立即触发 |
 | `topic_scout` | daily times | 08:00 / 20:00（Asia/Shanghai） | 执行时刻、时区、启停、`min_new_items`（新素材不足则跳过） |
-| `topic_evaluate` | **event-driven** | candidate 产生即投递 | 启停、并发上限、每日 token 预算 |
+| `topic_evaluate` | **event-driven** | candidate 产生即投递 | 启停、并发上限 |
 
 三条设计纪律：
 
@@ -100,7 +100,7 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - [ ] TopicScout：素材聚类 + 角度生成 + 查重；insights 检索留接口（M3 才有数据）
 - [ ] TopicJudge：rubric YAML + 生效权重 → 结构化评分；一票否决逻辑（本 rubric 暂无 veto 维度，但代码路径就位）
 - [ ] Langfuse 接入：每 job 一条 trace，评分作为 score 挂载，trace_id 回写 agent_runs
-- [ ] 每日 token 预算熔断（env 配置上限，超限停止消费 + 告警）
+- [ ] 每个 LLM 调用通过 Langfuse trace 记录 prompt、输出、输入/输出 token 和成本；不在应用层重复实现每日 token 预算，供应商 API key 负责额度限制
 
 ### scholar-client（Next.js）
 - [ ] 引入 shadcn/ui + TanStack Query
@@ -145,7 +145,7 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 
 **工程**
 - [ ] 全链路 Langfuse trace 可查（prompt / 输出 / token / 成本）
-- [ ] token 预算熔断手动压测触发一次
+- [ ] quota/余额/无效 key 等永久错误不重复重试；临时错误的 job 重试次数有限且可观测
 - [ ] agents 崩溃重启后 job 不丢（pgmq visibility timeout 实测）
 - [ ] 数据库备份产出 + **恢复演练成功**
 - [ ] CI：队列名一致性校验生效；GHCR 镜像可部署

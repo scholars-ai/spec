@@ -110,7 +110,7 @@ scholar-infra   (引用各仓库镜像/产物，不被依赖)
 
 - 环境：`local`（docker compose 起 Postgres——含 pgmq/pgvector 扩展——即可全栈本地跑）→ `prod`（VPS，同一镜像自托管 + 每日 pg_dump 备份推 COS，ADR-004）。
 - 密钥纪律（硬性）：见各仓库 .gitignore + gitleaks CI + GitHub push protection 三层防线；密钥只存 VPS 部署工作区 / GitHub Actions secrets / 本地 .env。
-- 模型路由与预算：agents 的 `model_routing.yaml` 按任务配置 provider/model；内置每日 token 预算熔断 + 告警。
+- 模型路由与用量：agents 的 `model_routing.yaml` 按任务配置 provider/model；每个 LLM 调用通过 Langfuse 和 `agent_runs` 记录 token/成本，供应商 API key 负责额度限制。
 
 ## 6. 可观测性
 
