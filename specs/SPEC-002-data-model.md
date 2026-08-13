@@ -73,6 +73,8 @@ AgentRun (贯穿所有环节的运行留痕，soft 关联各实体)
 | rationale | text | 评审理由（人可读） |
 | judge_model | text | 评审用的模型 |
 | agent_run_id | fk → agent_runs | 溯源 |
+| weight_version | int nullable | 评分时生效的 `weight_sets.version`，用于历史回放 |
+| vetoed_dimension | text nullable | 触发一票否决的维度；没有 veto 时为空 |
 
 ### articles — 文章
 
