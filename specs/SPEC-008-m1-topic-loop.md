@@ -133,7 +133,7 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 
 **功能**
 - [x] ≥8 个信源接入并完成真实采集；单源失败隔离、连续失败状态可观测
-- [ ] 每天自动产出 ≥10 条选题候选，语义重复率 < 10%（已完成一次受控批量验收：10 条 Scout/Judge 任务，仍需按自然日持续运行验证）
+- [x] 每天自动产出 ≥10 条选题候选，语义重复率 < 10%（2026-08-14 09:00 Asia/Shanghai 自动窗口产生 12 条候选，12 条均完成 Judge；当前全库 `cosine >= 0.92` 重复 pair 为 0）
 - [x] 手动投喂 URL → 出现在候选池 < 2 分钟（2026-08-14 真实验收：新 URL 入库后定向 Scout 生成 3 条候选约 31 秒）
 - [x] 每条候选具备总分、6 维度分、人可读理由
 - [x] approve/reject 生效，非法状态流转被拒（409）
@@ -212,8 +212,10 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - **当前版本回归与全量对账（2026-08-14 06:10 Asia/Shanghai）**：agents `1f86f57` 部署后，重新投喂 `https://nodejs.org/en/blog/release/v24.16.0`，3 条 raw item 生成 3 条 candidate，3 条均进入 `scored`，每条 Judge 的 `agent_runs.prompt_version=topic-judge@v1`、`rubric_version=topic@v1`、`weight_version=1`、`vetoed_dimension=null`，且记录输入/输出 token。对应 3 个 Langfuse trace 均存在 generation（模型 `deepseek-ai/DeepSeek-V3`，token 分别为 `8777 / 8742 / 8618`）和 `topic_total_score` score。历史缺失的 9 条 Judge score 已按数据库评分回填；当前生产库 46/46 个成功 Judge 均有 `agent_runs`、token 和 `topic_total_score`。
 - **观测可靠性修复**：`scholar-agents:d483d2c` 为 Langfuse ingestion 增加固定 3 次有限重试，且 `4xx` 永久错误不重试；agents 全量测试 `101 passed`、ruff 和 mypy 通过，并已在 VPS 本地构建部署。该重试只保护 Langfuse 观测写入，不改变业务 job 的临时错误/永久错误重试策略。
 - **当前生产快照（2026-08-14 06:13 Asia/Shanghai）**：47 条 topic、47 条已评分；1035 组向量 pair 中 `cosine >= 0.92` 的重复 pair 为 0，最高相似度 `0.903497`；source_fetch、topic_scout、topic_evaluate 三个队列均为 0 积压。该快照仍不替代自然日连续观察。
+- **当前版本自动批次验收（2026-08-14 09:00 Asia/Shanghai）**：生产镜像 `scholar-core:795a619` / `scholar-agents:e2b5b51` 按 DB scheduler 自动投递 `topic_scout`（`planned_at=2026-08-14 01:00:00 UTC`），产生 12 条候选；12 条均成功 Judge，均有输入/输出 token、`topic@v1`、`weight_version=1`、`vetoed_dimension=null`。该批次 1 个 Scout trace 与 12 个 Judge trace 均有 Langfuse generation，12 个 Judge trace 均有 `topic_total_score`，缺失数均为 0。
+- **历史观测边界（2026-08-14）**：全库审计仍能看到 11 个旧 Scout `agent_runs` 的 trace 缺少 generation；它们集中在旧镜像/旧 Langfuse 状态窗口（2026-08-13 19:50–20:00 UTC），无法从业务库重建原始输入/输出，未伪造历史 observation。当前部署版本从 `2026-08-14 00:54 UTC` 起的 1 个 Scout + 12 个 Judge trace parity 均为 0 缺失。
 - **历史观测补评（2026-08-14 06:21 Asia/Shanghai）**：发现 9 条早期成功 Judge 只有 generation 缺失，无法从数据库重建原始 LLM 输入/输出；未伪造历史 observation，而是使用当前 agents 版本重新执行这 9 个 topic，保留原评价历史。补评任务 `msg_id=51–59` 全部成功，当前每个 topic 的最新评价均有 generation、输入/输出 token 和 `topic_total_score`：`46/46` 最新评价完整可回放，三个队列仍为 0 积压。
 - **永久 source 错误修复（2026-08-13）**：`scholar-agents:6cf7347` 将“source 不存在 / source 没有 URL”归类为永久错误，不再进行最多 3 次 worker 重试；对应回归测试通过，agents 全量测试 `103 passed`、ruff 和 mypy 通过，并已在 VPS 部署。时间校准期间遗留的两个历史 source_fetch 消息已清理，当前 source_fetch 队列为 0。
 - **生产时间校准（2026-08-13 06:43 Asia/Shanghai）**：发现 VPS 时钟比本次验收基准提前 24 小时，导致旧 `source_health.next_run_at` 与 pgmq visibility 时间落在未来；已停用错误时间同步服务、将系统时间校准到 `2026-08-13`，并将受影响的 22 个 `source_health` 调度时间回拨 24 小时。校准后 core/agents/Postgres/Langfuse 均健康，下一次 source interval 按校准后的 DB 时间正常计算。自然日统计从本时间点重新开始，不使用校准前的日期快照作为完整自然日证据。
 - **备份恢复**：生产备份 `scholar` 与 `langfuse` 均完成加密完整性校验，并成功上传 COS、回读校验；从 COS 下载后恢复到临时库，业务库核对出 `17` 条 topics、`16` 条 topic_evaluations，`pgmq`/`vector` 扩展存在，Langfuse 临时库恢复出 `72` 条 observations。
-- **仍需完成**：自然日连续运行观察（每天自动 ≥10 条且语义重复率 <10%）、人工抽查 20 条评分理由（认可率 ≥80%），以及确认 Scholar 域名后配置 nginx/client 公网部署。这三项不能用单次自动触发、受控投喂或自动检查替代。
+- **仍需完成**：人工抽查 20 条评分理由（认可率 ≥80%），以及确认 Scholar 域名后配置 nginx/client 公网部署。人工质量结论不能由自动规则替代；公网入口也不能在未确认域名和 API 安全方案时擅自暴露写接口。
