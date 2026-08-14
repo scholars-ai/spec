@@ -218,4 +218,6 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - **永久 source 错误修复（2026-08-13）**：`scholar-agents:6cf7347` 将“source 不存在 / source 没有 URL”归类为永久错误，不再进行最多 3 次 worker 重试；对应回归测试通过，agents 全量测试 `103 passed`、ruff 和 mypy 通过，并已在 VPS 部署。时间校准期间遗留的两个历史 source_fetch 消息已清理，当前 source_fetch 队列为 0。
 - **生产时间校准（2026-08-13 06:43 Asia/Shanghai）**：发现 VPS 时钟比本次验收基准提前 24 小时，导致旧 `source_health.next_run_at` 与 pgmq visibility 时间落在未来；已停用错误时间同步服务、将系统时间校准到 `2026-08-13`，并将受影响的 22 个 `source_health` 调度时间回拨 24 小时。校准后 core/agents/Postgres/Langfuse 均健康，下一次 source interval 按校准后的 DB 时间正常计算。自然日统计从本时间点重新开始，不使用校准前的日期快照作为完整自然日证据。
 - **备份恢复**：生产备份 `scholar` 与 `langfuse` 均完成加密完整性校验，并成功上传 COS、回读校验；从 COS 下载后恢复到临时库，业务库核对出 `17` 条 topics、`16` 条 topic_evaluations，`pgmq`/`vector` 扩展存在，Langfuse 临时库恢复出 `72` 条 observations。
-- **仍需完成**：人工抽查 20 条评分理由（认可率 ≥80%），以及确认 Scholar 域名后配置 nginx/client 公网部署。人工质量结论不能由自动规则替代；公网入口也不能在未确认域名和 API 安全方案时擅自暴露写接口。
+- **初轮人工抽查结果（2026-08-14，topic@v1）**：20 条人工抽查中认可 `13/20`、部分认可 `0/20`、不认可 `7/20`，认可率 `65%`，未达到 M1 要求的 `≥80%`。不认可样本主要涉及受众认知门槛、主题抽象、主题重复和中文社区定位不匹配；该结果作为 v1 基线保留，不自动替代 v2 人工验收。
+- **topic@v2 生产重评（2026-08-14）**：生产 agents 已部署 `topic-v2-retry-local`，使用 `topic@v2` / `topic-judge@v2` 重评同一批 20 条样本；20/20 成功、20/20 记录输入/输出 token、20/20 有 Langfuse generation、20/20 有 `topic_total_score`，`topic_evaluate` 队列为 0。新版维度分、总分和 rationale 已写入 `spec/evidence/M1-topic-review-20.md`，等待人工重新确认。
+- **仍需完成**：TopicJudge v2 人工质量门槛（认可率 ≥80%），以及确认 Scholar 域名后配置 nginx/client 公网部署。人工质量结论不能由自动规则替代；公网入口也不能在未确认域名和 API 安全方案时擅自暴露写接口。
