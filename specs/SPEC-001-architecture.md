@@ -18,7 +18,7 @@
 | 任务队列 | **pgmq**（Postgres 扩展，镜像内置） | 跨语言（本质是 SQL）；**入队与业务状态变更同事务**，保证编排正确性；VPS 无需 Redis（ADR-003） |
 | 定时调度 | core 内置 cron（robfig/cron）投递 pgmq job | 调度逻辑与编排同处一地，可观测 |
 | 契约 | **JSON Schema + OpenAPI 为源，codegen 三端**（详见 §3） | 语言中立，三种语言共享一份契约 |
-| Agent 可观测 | **Langfuse 自托管于 VPS** | trace 每次运行的 prompt/成本/评分；trace 保留 30 天防磁盘膨胀（ADR-004） |
+| 可观测 | **OpenTelemetry Collector + Tempo + Prometheus + Grafana；Langfuse 保留 LLM 细节** | OTel 覆盖 Core/队列/Agents/DB 全链路；Tempo 保存安全的任务 Trace；Prometheus 保存低基数指标；LLM Span 通过 `langfuse.trace_id` 跳转（ADR-006） |
 | 采集 | **RSSHub（VPS 已有实例，复用）+ Python 侧 feedparser/trafilatura** | 采集与清洗划入 agents 侧的 Python 生态（见 §2 分工） |
 | 对象存储 | 预留：腾讯云 COS（配图/封面阶段再接） | 与现有 aicave 基建一致 |
 | 部署 | client → **Vercel**；core/agents/Langfuse → **VPS Docker Compose**（复用现有 nginx） | 长任务与常驻 worker 不适合 serverless |
@@ -68,6 +68,11 @@
         │ PostgreSQL 17 (VPS 自托管)   │
         │  业务表 + pgvector + pgmq    │
         └─────────────────────────────┘
+
+scholar-core / scholar-agents ──OTLP──▶ Collector
+                                         ├──▶ Tempo ──┐
+                                         └──▶ Prometheus ──▶ Grafana
+LLM Span ──langfuse.trace_id──────────────────────────▶ Langfuse
 ```
 
 分工原则：
@@ -114,13 +119,24 @@ scholar-infra   (引用各仓库镜像/产物，不被依赖)
 
 ## 6. 可观测性
 
-- **Agent 层**：Langfuse trace（每个 job 一条 trace，子步骤嵌套 span），评分作为 score 挂 trace。
-- **服务层**：core 用 slog 结构化日志；agents 用 structlog；VPS logrotate（已有实践）。
-- **业务层**：client 数据面板直查 Postgres 聚合（core 提供 API）。
+全局观测采用 ADR-006：
+
+```text
+Core / Agents → OTLP Collector → Tempo + Prometheus → Grafana
+LLM Span      → langfuse.trace_id data link          → Langfuse
+```
+
+- **Trace**：HTTP、Scheduler、Harvester、pgmq publish/process、状态流转、抓取、Embedding、Scout/Judge 和 LLM 都创建 Span；跨队列通过 W3C Trace Context 传播。
+- **Correlation**：一次 API、Scheduler 或 Harvester 触发创建 `correlationId`；下游沿用 correlation，每条消息拥有独立 `jobId` 和 `parentJobId`。
+- **Metrics**：Prometheus label 只使用 queue、job type、status、provider/model、状态边、route 和 error type 等有限集合；实体 ID 只用于 Trace 查询。
+- **LLM 细节**：prompt、完整输出、token、成本和评分仍在 Langfuse；Tempo 只保留模型、token 数、版本号和 `langfuse.trace_id`。
+- **故障隔离**：没有 OTLP endpoint 时 SDK 为 no-op；Collector/Tempo/Prometheus 不可用不影响业务 job。
+- **保留期**：Tempo 初始 7 天，Prometheus 初始 30 天；Langfuse 按 ADR-004 管理。
+- **日志**：core 使用 slog，agents 使用 structlog；第一版不部署 Loki。
 
 ## 7. 开放问题
 
 - [ ] gen/go 以 go module 方式被 core 引用：直接 `require github.com/scholars-ai/scholar-shared/gen/go` 还是 go.work？（M0 实操定）
 - [x] Langfuse：自托管于 VPS，与业务库共用 Postgres 实例，trace 保留 30 天（ADR-004）
 - [ ] 公众号排版（md → 微信富文本）方案（M2 决定）
-- [x] embedding：VPS Ollama + qwen3-embedding:4b，MRL 截断 1024 维（ADR-005）
+- [x] embedding：SiliconFlow `BAAI/bge-m3` 原生 1024 维；Ollama 仅作备用（ADR-005 v2）

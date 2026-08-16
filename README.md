@@ -41,4 +41,5 @@
 | [003](adr/ADR-003-pgmq-over-redis.md) | 任务队列用 pgmq（事务性入队，无 Redis） |
 | [004](adr/ADR-004-self-hosted-postgres.md) | Postgres 自托管于 VPS（弃 Supabase），Langfuse 同实例 |
 | [005](adr/ADR-005-ollama-embedding.md) | Embedding 走 SiliconFlow bge-m3（1024d）；本机 Ollama 降为备用 |
+| [006](adr/ADR-006-opentelemetry-observability.md) | OTel Collector + Tempo + Prometheus + Grafana；Langfuse 保留 LLM 细节 |
 - **契约变更**：`scholar-shared` 的任何 breaking change 必须先在 SPEC-002 中体现。

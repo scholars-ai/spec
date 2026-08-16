@@ -6,25 +6,40 @@
 
 节奏假设：业余时间迭代，每个里程碑 2–4 周弹性。**每个里程碑结束时系统都处于"可用"状态**，不搞长期不可用的大重构。
 
-## M0 · 地基（本周）
+## M0 · 地基（已完成）
 
 - [x] 设计 spec（本仓库）
-- [ ] 创建 GitHub Organization `scholars-ai`（网页手动，见下方备注）
-- [ ] 建 6 个仓库：spec / scholar-shared / scholar-core / scholar-agents / scholar-client / scholar-infra，推入初始骨架
-- [ ] scholar-shared：JSON Schema 首版（实体 + job payload + rubric 结构）+ rubric YAML + codegen 管线（Go/Python/TS）
-- [ ] scholar-core：Go 骨架（chi + sqlc + oapi-codegen）+ goose 迁移（SPEC-002 全部表）
-- [ ] scholar-infra：docker-compose（core / agents / langfuse；本地 Postgres 含 pgmq+pgvector 扩展）+ 本地开发 compose
-- [ ] CI：core（go vet/test/build）、agents（ruff/mypy/pytest）、client（lint/typecheck）、shared（codegen 无 diff 校验）跑通
+- [x] 创建 GitHub Organization `scholars-ai`
+- [x] 建 6 个仓库：spec / scholar-shared / scholar-core / scholar-agents / scholar-client / scholar-infra，推入初始骨架
+- [x] scholar-shared：JSON Schema 首版（实体 + job payload + rubric 结构）+ rubric YAML + codegen 管线（Go/Python/TS）
+- [x] scholar-core：Go 骨架（chi + sqlc + oapi-codegen）+ goose 迁移（SPEC-002 全部表）
+- [x] scholar-infra：docker-compose（core / agents / langfuse；本地 Postgres 含 pgmq+pgvector 扩展）+ 本地开发 compose
+- [x] CI：core（go vet/test/build）、agents（ruff/mypy/pytest）、client（lint/typecheck）、shared（codegen 无 diff 校验）跑通
 - 验收：本地 `docker compose up` 起全套，core 健康检查通过，空管道可插入一条手动 topic
 
-## M1 · 选题闭环（人工确认）
+## M1 · 选题闭环（已完成，人工确认）
 
-- [ ] Sourcing 模块：≥8 信源接入（复用 VPS RSSHub）+ 手动投喂 URL
-- [ ] 去重（hash + embedding）、TopicScout 聚合选题
-- [ ] 选题评分 rubric topic@v1 + TopicJudge Agent + Langfuse 接入
-- [ ] client v1：选题看板（候选/评分/理由/确认与否决）、信源管理
-- [ ] 部署上 VPS，定时任务跑起来
+- [x] Sourcing 模块：≥8 信源接入（复用 VPS RSSHub）+ 手动投喂 URL
+- [x] 去重（hash + embedding）、TopicScout 聚合选题
+- [x] 选题评分 rubric topic@v2 + TopicJudge Agent + Langfuse 接入
+- [x] client v1：选题看板（候选/评分/理由/确认与否决）、信源管理
+- [x] 部署上 VPS，定时任务跑起来
 - 验收：SPEC-003 §5 + SPEC-004 验收标准 M1 条目
+
+## M1.1 · 可靠性与全局可观测性（实现完成，待部署）
+
+- [x] Provider 结构化错误分类；普通 429 可重试，明确 quota/balance code 才永久失败
+- [x] whole-job deadline、visibility lease、Retry-After/指数退避、成功回执幂等和死信审计
+- [x] 状态流转审计、手动 reason/note、逐维度理由、source fetch 执行记录和 source 软归档
+- [x] queue-specific Worker 进程，消除慢队列阻塞其他队列
+- [x] OTel Collector + Tempo + Prometheus + Grafana；Langfuse 保留 LLM 细节
+- [x] shared `_meta`、W3C Trace Context 和 correlation/job/parent job 传播
+- [x] client 与 shared 的跨仓库 TS 生成物漂移 CI
+- [x] scholar-infra 中真实 PostgreSQL/pgmq + Fake AI 的跨仓库 E2E
+- [x] 本地 E2E 运行验收通过
+- [ ] 评估 VPS 资源后部署观测组件并进行 7/30 天保留期调优
+
+正确性优先级固定为：`deadline + visibility lease + idempotency → concurrency`。生产部署不属于本次本地实现授权范围。
 
 ## M2 · 写作军团
 

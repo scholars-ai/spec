@@ -18,7 +18,7 @@ M0 已交付五仓骨架。本 spec 把 SPEC-007 的 M1 里程碑落成可执行
 |---|---|---|
 | 数据库 | VPS 自托管 Postgres 17（业务库 + Langfuse 库同实例），每日 pg_dump 推 COS | ADR-004 |
 | Embedding | **SiliconFlow API `BAAI/bge-m3`（原生 1024 维）**，输入截断 600 字符；本机 Ollama 降为 `EMBED_BACKEND=ollama` 备用 | ADR-005 v2（本机方案实测不可行，见该 ADR §决策变更） |
-| 可观测 | Langfuse 自托管，trace 保留 30 天 | ADR-004 |
+| 可观测 | OTel Collector → Tempo/Prometheus → Grafana；LLM 细节留在 Langfuse | ADR-006；Langfuse 数据与保留见 ADR-004 |
 
 ## 3. 数据流（M1 结束时的运行态）
 
@@ -47,6 +47,8 @@ core harvester ──▶ 状态机 candidate→scored；≥75 推荐 / 60–75 �
                             │
 scholar-client 选题看板 ──▶ 人工 approve / reject（scored → approved / rejected）
 ```
+
+每次 API/调度触发创建 `correlationId`，每条 pgmq 消息拥有独立 `jobId`，下游通过 `parentJobId` 和 W3C `traceparent` 继续同一 Trace。Core/Agents 的安全 Span 进入 Tempo；Scout/Judge 的 prompt、完整输出、token、成本和评分只进入 Langfuse，Tempo 通过 `langfuse.trace_id` 关联。
 
 ### 3.1 调度是配置，不是硬编码（2026-08-11 修订）
 
@@ -146,6 +148,11 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - [x] 全链路 Langfuse trace 可查（prompt / 输出 / token / 成本）
 - [x] quota/余额/无效 key 等永久错误不重复重试；临时错误的 job 重试次数有限且可观测
 - [x] agents 崩溃重启后 job 不丢（pgmq visibility timeout 实测）
+- [x] job 有 whole-job deadline，visibility lease 覆盖 deadline + grace；成功回执防止 delete 前崩溃导致重复执行业务
+- [x] 永久失败/重试耗尽写入 `job_failures` 并 archive；状态流转写入 `state_transition_events`
+- [x] source_fetch/topic_scout/topic_evaluate 使用独立 Worker 进程，可分别扩容和隔离慢任务
+- [x] Core/Agents 通过 OTLP 上报 Trace/Metrics；观测组件不可用不影响业务
+- [x] 跨仓库 E2E：两条 M1 路径、Tempo correlation、Langfuse link 和 Collector 故障隔离全部运行通过
 - [x] 数据库备份产出 + **恢复演练成功**（本地加密副本与 COS 下载副本均验证）
 - [x] CI：队列名一致性校验生效；GHCR 镜像构建通过，VPS 生产服务已部署
 

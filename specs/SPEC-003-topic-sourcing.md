@@ -50,7 +50,7 @@
 core cron 每小时投递 pgmq job ──▶ agents 侧 fetch(source)
    ──▶ role=material 且 full_text=fetch_page 时抓原文页（trafilatura）
    ──▶ 清洗 ──▶ 精确去重（guid 优先，回退 content_hash）
-   ──▶ embedding（Ollama，1024d）──▶ 语义去重（近 14 天相似度 > 0.92 合并）
+   ──▶ embedding（SiliconFlow bge-m3，1024d；Ollama 备用）──▶ 语义去重（近 14 天相似度 > 0.92 合并）
    ──▶ 入库 status=new
 ```
 

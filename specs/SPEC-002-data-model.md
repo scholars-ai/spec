@@ -141,6 +141,24 @@ AgentRun (贯穿所有环节的运行留痕，soft 关联各实体)
 | model / prompt_version | text | |
 | tokens_in / tokens_out / cost_usd | numeric | 成本核算 |
 | status | enum | `running` / `succeeded` / `failed` |
+| correlation_id | uuid nullable | 与 Core/pgmq/Tempo 的一次端到端业务链关联 |
+
+### 运行可靠性与审计表
+
+| 表 | 关键字段 | 作用 |
+|---|---|---|
+| `state_transition_events` | entity、from/to、actor、trigger、reason、correlation_id、metadata | 每次状态变化的结构化不可变审计；状态更新与事件插入同事务 |
+| `job_failures` | queue、msg_id、job_id、correlation_id、payload、read_count、error_type、retryable、archived | 永久错误或重试耗尽后的死信证据 |
+| `job_receipts` | job_id、queue、msg_id、correlation_id、completed_at | 成功 job 的持久化幂等回执；处理完成后删除消息前崩溃也不会重复执行业务 |
+| `source_fetch_runs` | source_id、job_id、correlation_id、attempt、ok、stats/error、started/finished_at | 每次采集执行结果，区分“已调度”和“真实执行成功” |
+
+### Correlation 与补充字段
+
+- `raw_items.correlation_id`、`topics.correlation_id`、`agent_runs.correlation_id` 保存一次端到端链路标识；
+- `raw_items.ingest_note` 保存手动投喂备注，供后续 Scout/运营审计使用；
+- `topic_evaluations.dimension_reasons` 保存每个评分维度的理由，不再只保留数值；
+- `sources.archived_at` 实现软归档，保留历史素材的外键和审计链；
+- 这些字段均允许历史数据为空，队列 `_meta` 也可选，确保旧数据和旧消息兼容。
 
 ## 3. 状态机
 
@@ -167,4 +185,7 @@ draft ──评分──▶ scored ──┬─ 总分 ≥ 阈值 ──▶ pend
 - `raw_items.content_hash` unique；embedding 建 HNSW 索引（pgvector）。
 - `articles` 上 `(topic_id, platform, version)` unique。
 - `metric_snapshots` 上 `(publication_id, captured_at)` unique。
+- `job_receipts.job_id` primary key，作为跨重投的持久化幂等键。
+- `job_failures(queue, msg_id)` unique，避免同一死信重复落库。
+- correlation 字段使用普通/部分索引供运维下钻，但不得成为 Prometheus label。
 - 所有 enum 用 Postgres enum + `scholar-shared` 的 JSON Schema enum 双向对齐，新增平台只需扩枚举，不动表结构。
