@@ -118,6 +118,14 @@ publicationId,snapshotWindow,capturedAt,views,likes,favorites,comments,shares,fo
 `memory_reflect` 生成冷启动周报、相关性数据和 evidence 非空的 candidate insight，
 人工退役写入 `manual_status_override`。该记录只证明工程正确性，不替代真实运营数据。
 
+生产部署记录（2026-08-17）：VPS 数据库迁移到 goose v9，部署 Core `8f3be0b`、
+Client `06157f2`、Agents `3f7fb3f` 和独立 `memory_reflect` worker。写作、文章评分与
+Reflector 路由到 Vtrix OpenAI-compatible `gpt-5.6-sol`；生产探针分别验证了
+`chat/completions`、JSON Schema 结构化输出和 tool call。空数据触发真实
+`memory.reflect` 后生成 `sample_count=0`、`coldStart=true` 的周报，队列清空且无
+未归档失败。当前生产库没有 Publication，因此没有生成或伪造 Insight；真实运营验收
+仍保持未完成。
+
 ## 5. 真实运营验收
 
 - [ ] 发帖数据录入后在下一份归因周报出现，全链路不超过一个周周期。

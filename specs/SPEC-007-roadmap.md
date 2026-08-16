@@ -65,7 +65,8 @@ pool 指标，Collector 的 span 与 metric 导出失败均为 0；观测存储�
 - [x] Reflector Agent + insights 库 + 周报
 - [x] 记忆注入 TopicScout / Writer
 - [x] 评分校准报告管线（只报告，不自动调权）
-- 工程状态：M3 功能与跨仓库回归闭环完成；生产部署后开始积累真实 24h/72h/7d 样本
+- 工程状态：M3 功能、跨仓库回归、goose v9 与生产部署均完成；空数据 Reflector
+  冷启动已验证，开始积累真实 24h/72h/7d 样本
 - 真实验收：发帖数据进入下一周期周报、`active` insights ≥20、首份真实校准报告仍依赖运营数据；Fake AI 不计入
 - 验收：SPEC-006 §7 前两条
 
