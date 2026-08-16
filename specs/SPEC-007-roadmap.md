@@ -26,7 +26,7 @@
 - [x] 部署上 VPS，定时任务跑起来
 - 验收：SPEC-003 §5 + SPEC-004 验收标准 M1 条目
 
-## M1.1 · 可靠性与全局可观测性（实现完成，待部署）
+## M1.1 · 可靠性与全局可观测性（已完成）
 
 - [x] Provider 结构化错误分类；普通 429 可重试，明确 quota/balance code 才永久失败
 - [x] whole-job deadline、visibility lease、Retry-After/指数退避、成功回执幂等和死信审计
@@ -37,9 +37,17 @@
 - [x] client 与 shared 的跨仓库 TS 生成物漂移 CI
 - [x] scholar-infra 中真实 PostgreSQL/pgmq + Fake AI 的跨仓库 E2E
 - [x] 本地 E2E 运行验收通过
-- [ ] 评估 VPS 资源后部署观测组件并进行 7/30 天保留期调优
+- [x] 评估 VPS 资源后部署观测组件并进行 7/30 天保留期调优
 
-正确性优先级固定为：`deadline + visibility lease + idempotency → concurrency`。生产部署不属于本次本地实现授权范围。
+正确性优先级固定为：`deadline + visibility lease + idempotency → concurrency`。
+
+生产验收（2026-08-16）：VPS 7.5 GiB RAM 中约 3.8 GiB 可用，系统盘剩余约
+23 GiB；Tempo / Prometheus 分别采用 7 / 30 天保留，低流量阶段保持 100%
+采样。Core `92f598e` 与三个 queue-specific Agents worker `b8cd4f5` 已部署，
+Grafana 经 nginx Basic Auth 与自身登录双层保护。真实 `source_fetch` 验收在
+同一 correlation ID 下串联 Core 与 Agents，Prometheus 收到 Core / Agents / DB
+pool 指标，Collector 的 span 与 metric 导出失败均为 0；观测存储按 4 GiB 预算
+配置绝对容量和七天增长投影告警。
 
 ## M2 · 写作军团
 
