@@ -173,17 +173,24 @@ candidate ──评分──▶ scored ──人工确认──▶ approved ─�
 ### Article
 
 ```
-draft ──评分──▶ scored ──┬─ 总分 ≥ 阈值 ──▶ pending_review ──人工终审──▶ approved ──▶ published
-                        └─ 总分 < 阈值 ──▶ rewrite_queued（带评审意见回炉，最多 N 轮）──▶ draft
-                                                人工终审拒绝 ──▶ rejected
+单个不可变版本：
+draft ──评分──▶ scored ──┬─ 通过 ──▶ pending_review ──人工终审──▶ approved ──▶ published
+                        ├─ 未通过且 version < 3 ──▶ rewrite_queued（旧版本终态）
+                        └─ 未通过且 version = 3 ──▶ pending_review（标记需人工介入）
+
+版本链：v1(rewrite_queued) ── previous_article_id ──▶ v2(draft) ──▶ 最多 v3
+人工终审拒绝：pending_review ──▶ rejected
 ```
 
-状态流转只允许由 core 的 Pipeline Orchestrator 执行（单一写入口），agents 只提交结果不改状态。
+Article 状态属于**某一个版本行**，回炉绝不把旧行改回 draft，而是新建下一版本并用
+`previous_article_id` 串成线性链。状态流转和回炉任务投递只允许由 core 的 Pipeline
+Orchestrator 执行（单一写入口），agents 只追加 Article / ArticleEvaluation 结果。
 
 ## 4. 索引与约束要点
 
 - `raw_items.content_hash` unique；embedding 建 HNSW 索引（pgvector）。
 - `articles` 上 `(topic_id, platform, version)` unique。
+- `articles.previous_article_id` 非空时 unique，保证一个旧版本至多产生一个直接后继版本。
 - `metric_snapshots` 上 `(publication_id, captured_at)` unique。
 - `job_receipts.job_id` primary key，作为跨重投的持久化幂等键。
 - `job_failures(queue, msg_id)` unique，避免同一死信重复落库。

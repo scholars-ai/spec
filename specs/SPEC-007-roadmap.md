@@ -51,8 +51,8 @@ pool 指标，Collector 的 span 与 metric 导出失败均为 0；观测存储�
 
 ## M2 · 写作军团
 
-- [ ] Platform Profile × 3（小红书/知乎/公众号）+ WriterOrchestrator 流水线
-- [ ] 文章评分 rubric × 3 + ArticleJudge + 回炉机制
+- [x] Platform Profile × 3（小红书/知乎/公众号）+ WriterOrchestrator 流水线
+- [x] 文章评分 rubric × 3 + ArticleJudge + 不可变版本回炉机制（最多 v3）
 - [ ] client：文章审阅页（diff 编辑、终审通过/拒绝、复制导出 md）
 - [ ] publications 手动登记（发了哪、链接、最终稿 diff）
 - 验收：SPEC-005 §5 条目；开始真实运营发帖

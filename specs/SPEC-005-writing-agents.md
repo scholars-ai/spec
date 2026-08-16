@@ -11,7 +11,7 @@
 ## 2. Agent 编排（自研 runtime，ADR-002）
 
 ```
-article.write job (topic_id, platform)
+article.write job (topic_id, platform, rewrite?)
    │
    ▼
 WriterOrchestrator（每平台一个实例，注入对应 Platform Profile）
@@ -29,7 +29,9 @@ WriterOrchestrator（每平台一个实例，注入对应 Platform Profile）
 ```
 
 - 模型分配：Outliner/Drafter 用 `claude-sonnet-5`；SelfCritic 可用更便宜档位。prompt 版本号记入 articles.writer_agent。
-- 回炉：评分不达标时，评审意见作为额外输入重跑 ③④（不重跑大纲，除非结构维度不达标）。
+- 回炉：评分不达标时，core 原子执行旧版本 `scored → rewrite_queued` 并投递下一版本任务；Writer 新建 Article 行并写入 `previous_article_id`，不覆盖旧稿。
+- `rewrite.evaluationFeedback` 组合总体理由、每维分数/理由和 veto 维度；默认只重跑 ③④，`structure < 6` 时设置 `redoOutline=true` 重跑 ②。
+- 版本上限为 v3：v1 最多回炉到 v2、v3；v3 仍不通过时不再投递写作任务，交人工介入。
 
 ## 3. Platform Profile（平台档案）
 
