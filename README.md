@@ -17,6 +17,7 @@
 | SPEC-006 | [记忆与反馈闭环](specs/SPEC-006-memory-and-feedback-loop.md) | 发帖数据回流、反思机制、经验库 |
 | SPEC-007 | [路线图](specs/SPEC-007-roadmap.md) | 里程碑 M0–M4、验收标准 |
 | SPEC-008 | [M1 实施计划](specs/SPEC-008-m1-topic-loop.md) | 选题闭环的交付清单、实施顺序、验收 |
+| SPEC-009 | [M3 实施计划](specs/SPEC-009-m3-data-memory-loop.md) | 数据快照、表现分、Reflector、记忆注入与验收 |
 
 ## 组织仓库规划（Polyrepo）
 

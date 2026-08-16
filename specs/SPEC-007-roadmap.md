@@ -60,11 +60,13 @@ pool 指标，Collector 的 span 与 metric 导出失败均为 0；观测存储�
 
 ## M3 · 数据回流与记忆 v1
 
-- [ ] 指标录入（表单 + CSV 导入）+ 24h/72h/7d 快照提醒
-- [ ] 表现分 P 计算 + 数据面板（client）
-- [ ] Reflector Agent + insights 库 + 周报
-- [ ] 记忆注入 TopicScout / Writer
-- [ ] 首份评分校准报告（只报告，不自动调权）
+- [x] 指标录入（表单 + CSV 导入）+ 24h/72h/7d 快照提醒
+- [x] 表现分 P 计算 + 数据面板（client）
+- [x] Reflector Agent + insights 库 + 周报
+- [x] 记忆注入 TopicScout / Writer
+- [x] 评分校准报告管线（只报告，不自动调权）
+- 工程状态：M3 功能与跨仓库回归闭环完成；生产部署后开始积累真实 24h/72h/7d 样本
+- 真实验收：发帖数据进入下一周期周报、`active` insights ≥20、首份真实校准报告仍依赖运营数据；Fake AI 不计入
 - 验收：SPEC-006 §7 前两条
 
 ## M4 · 校准与进化
