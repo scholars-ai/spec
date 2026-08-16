@@ -1,6 +1,6 @@
 # SPEC-005 · 写作 Agent 军团
 
-- 状态：Draft
+- 状态：Implemented（工程闭环完成；真实运营质量指标持续验收）
 - 日期：2026-08-06
 - 依赖：SPEC-002, SPEC-004
 
@@ -62,13 +62,23 @@ WriterOrchestrator（每平台一个实例，注入对应 Platform Profile）
 
 ## 5. 验收标准（M2）
 
-- [ ] 一个 approved topic 10 分钟内并行产出 3 平台文章并完成评分
+- [x] 一个 approved topic 10 分钟内并行产出 3 平台文章并完成评分；跨仓库 Fake AI E2E 对批准时间到三平台 `pending_review` 的墙钟时间做 ≤10 分钟断言
 - [ ] 三平台文章风格肉眼可辨（盲测能分出哪篇是给哪个平台的）
-- [ ] Formatter 拦截率可观测：硬性约束violations 在正式评分前被修复
+- [x] Formatter 拦截率可观测：`scholar_agent_formatter_violations_total{platform,stage}` 区分首次拦截与修复后仍失败，`scholar-infra/scripts/m2-audit.sh` 可直接查询
 - [ ] 人工修改量（publications.final_content_diff）平均 < 30%
-- [ ] 演练"新增平台"：按 §3 流程加一个假想平台，全程不改流水线代码
+- [x] 新增平台扩展性回归：Shared 校验要求 Platform enum、Profile、rubric 一一覆盖；Agents 测试参数化遍历全部 Platform，WriterOrchestrator 内无平台分支。扩 enum/profile/rubric 与 DB enum 后无需修改流水线代码，仓库不长期保留污染生产枚举的假想平台
 
-## 6. 开放问题
+前两项未完成项是**真实运营质量验收**，不是缺失的工程功能：盲测必须使用真实模型生成的同题三平台文章；人工修改量必须由真实 Publication 样本计算，不能用 Fake AI 或伪造发布记录冒充。
 
-- [ ] 三平台同题写作是否共享一次素材消化（省 token）再分叉，还是完全独立（隔离性好）——M2 实测定
-- [ ] SelfCritic 与正式 Judge 的 rubric 是否同源（同源省维护，但可能让自查"应试化"）
+### 5.1 2026-08-16 工程验收记录
+
+- `scholar-shared` OpenAPI 提供 Article 列表/详情/评分历史、终审通过/拒绝与 Publication 登记契约。
+- Article 原稿保持不可变；浏览器编辑人工终稿，Core 按“标题 + Markdown 正文”生成行级 diff，并用 Unicode 字符级 Levenshtein 距离计算 `edit_ratio`。
+- 首次 Publication 登记与 `approved → published` 状态流转、结构化审计处于同一数据库事务；同一平台帖子 ID/链接重复登记返回 409。
+- Client 提供版本链切换、Agent 原稿/人工终稿双栏、diff 预览、评分理由、复制/下载 Markdown、终审与发布历史。
+- 跨仓库 E2E 已覆盖 v2 回炉、终审通过/拒绝、发布登记、修改比例、状态审计、防重与观测故障隔离。
+
+## 6. 已决策问题
+
+- [x] M2 保持三平台独立 ContextBuilder/Writer 执行：当前低流量阶段优先故障隔离和可回放性；素材共享作为真实成本数据证明必要后再优化。
+- [x] SelfCritic 读取 Platform Profile 与硬约束，正式 ArticleJudge 独立读取版本化 rubric；两者共享平台目标但不共享完整评分 prompt，避免 SelfCritic 只针对 Judge 应试。

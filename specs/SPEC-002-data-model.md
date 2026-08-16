@@ -106,6 +106,7 @@ AgentRun (贯穿所有环节的运行留痕，soft 关联各实体)
 | platform_post_id | text | 平台侧 ID/链接 |
 | published_at | timestamptz | |
 | final_content_diff | text | 人工发布前的修改 diff（衡量"人工修改量"指标） |
+| edit_ratio | numeric nullable | Core 按“标题 + Markdown 正文”的 Unicode 字符级编辑距离确定性计算，范围 0–1；历史未计算记录为空 |
 
 ### metric_snapshots — 数据快照（同一发布多次采样，看增长曲线）
 

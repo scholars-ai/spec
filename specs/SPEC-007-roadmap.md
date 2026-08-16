@@ -53,9 +53,10 @@ pool 指标，Collector 的 span 与 metric 导出失败均为 0；观测存储�
 
 - [x] Platform Profile × 3（小红书/知乎/公众号）+ WriterOrchestrator 流水线
 - [x] 文章评分 rubric × 3 + ArticleJudge + 不可变版本回炉机制（最多 v3）
-- [ ] client：文章审阅页（diff 编辑、终审通过/拒绝、复制导出 md）
-- [ ] publications 手动登记（发了哪、链接、最终稿 diff）
-- 验收：SPEC-005 §5 条目；开始真实运营发帖
+- [x] client：文章审阅页（不可变原稿 + 人工终稿 diff 编辑、版本切换、终审通过/拒绝、复制/导出 md）
+- [x] publications 手动登记（平台链接/ID、发布时间、粉丝基数、Core 权威 diff/edit ratio）
+- 工程状态：M2 功能与跨仓库回归闭环完成；生产部署后开始真实运营发帖
+- 真实质量验收：SPEC-005 §5 的三平台盲测与平均人工修改量 <30% 需要首批真实 Publication 样本，禁止用 Fake AI 数据代替
 
 ## M3 · 数据回流与记忆 v1
 
