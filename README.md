@@ -18,6 +18,7 @@
 | SPEC-007 | [路线图](specs/SPEC-007-roadmap.md) | 里程碑 M0–M4、验收标准 |
 | SPEC-008 | [M1 实施计划](specs/SPEC-008-m1-topic-loop.md) | 选题闭环的交付清单、实施顺序、验收 |
 | SPEC-009 | [M3 实施计划](specs/SPEC-009-m3-data-memory-loop.md) | 数据快照、表现分、Reflector、记忆注入与验收 |
+| SPEC-010 | [批次工作流与节点级回放](specs/SPEC-010-workflow-run-and-replay.md) | 动态漏斗、任务回溯、逐条判定、节点重跑与结果对比 |
 
 ## 组织仓库规划（Polyrepo）
 
