@@ -35,10 +35,11 @@ WorkflowRun
 - Workflow 快照已支持按运行隔离的可逆归档/恢复 API；归档保留 payload、checksum、血缘和 `storageRef`，恢复只清除归档标记，并已纳入 VPS E2E 验收。
 - 快照 retention 已纳入 SchedulerSettings，默认保留 168 小时、每 tick 最多归档 100 个；Core 使用可并发安全的批量归档，Client 可配置策略，VPS E2E 已验证到期快照自动归档。
 - Client 运行详情已展示配置快照、父子 replay 血缘；运行 compare 已展示逐节点漏斗、通过率、原因聚合、耗时、token、成本和产物变化。
+- Core 已增加 OTel exporter 运行中连通性监测；Collector 在运行期间不可达时，新建任务会记录 `observability.status=unavailable` 和 `missing=true`，业务链路不被阻断，并已纳入 VPS E2E。
 
 当前跨仓库验收统一在 VPS 执行：`/root/scholars-ai/scholar-infra/e2e/run.sh`。本机 E2E 的环境差异不作为验收阻塞；每次提交推送后先同步 VPS，再以该脚本的结果为准。
 
-尚未完成的内容不改变本文件的目标语义，主要集中在：大型输入输出对象存储、完整的配置覆盖版本注册与校验、观测系统运行中断的实时缺失告警，以及 Client 更细粒度的 replay 字段覆盖和比较筛选。
+尚未完成的内容不改变本文件的目标语义，主要集中在：大型输入输出对象存储、完整的配置覆盖版本注册与校验、观测缺失的外部告警，以及 Client 更细粒度的 replay 字段覆盖和比较筛选。
 
 ## 2. 已拍板的设计原则
 
@@ -333,7 +334,7 @@ Replay 默认使用父运行的输入快照，但可以显式替换当前节点�
 - 12 小时 scheduler 配置和运行限制；
 - 大型输入输出快照的持久化策略；
 - 快照保留、归档和恢复策略（Core 批量 retention 已实现，超大对象迁移仍待完成）；
-- 观测系统故障时的缺失标记和告警。
+- 观测系统故障时的缺失标记和告警（Core 运行中缺失标记已实现，外部告警仍待补齐）。
 
 ## 9. 验收标准
 
