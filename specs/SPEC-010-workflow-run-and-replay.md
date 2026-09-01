@@ -31,7 +31,9 @@ WorkflowRun
 - Replay 已创建不可变父子运行，支持 `full`、`failed_items`、`selected_items` 和 `evaluate_only` 范围；从 `article_write` 回放复用父运行选题输入，从 `article_evaluate` 回放复用已有文章输入。
 - 工作流生成的文章版本固化 `correlation_id`；`article_write` replay 必须生成新版本并以子运行 ID 隔离，不能命中或覆盖父运行文章。
 - Agents 已记录业务拒绝与技术失败的区别、reason code、分数/阈值、rubric/权重版本、模型和 trace 信息，并支持 replay 的模型与阈值覆盖。
-- Client 已提供基础 Dify 风格运行画布、时间线、节点产物/判定检查器和 replay 入口。
+- Client 已提供 Dify 风格运行画布、任务历史列表、时间线、节点产物/判定检查器和 replay 入口；任务列表从 Core 读取每阶段输入/通过/拒绝/失败、产物、耗时、成本和最近失败节点摘要。
+
+当前跨仓库验收统一在 VPS 执行：`/root/scholars-ai/scholar-infra/e2e/run.sh`。本机 E2E 的环境差异不作为验收阻塞；每次提交推送后先同步 VPS，再以该脚本的结果为准。
 
 尚未完成的内容不改变本文件的目标语义，主要集中在：完整 PostgreSQL/pgmq 集成与 Docker E2E、配置覆盖的版本化校验、父运行与 replay 的完整对比指标、Client 的 replay 范围/配置/对比交互，以及快照归档与观测缺失告警。
 
