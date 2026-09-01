@@ -1,8 +1,8 @@
 # SPEC-001 · 总体架构与技术选型
 
-- 状态：Accepted（v2，2026-08-07 修订：后端改 Go + Python，见 ADR-001/002/003）
+- 状态：Accepted（v2；当前运行编排由 SPEC-010 补充并优先）
 - 日期：2026-08-06 / 2026-08-07
-- 依赖：SPEC-000
+- 依赖：SPEC-000；当前运行基线：SPEC-010
 
 ## 1. 技术选型总览
 
@@ -10,13 +10,13 @@
 
 | 层 | 选型 | 理由 |
 |---|---|---|
-| 前端 client | **Next.js 15 (App Router) + TypeScript + Tailwind CSS + shadcn/ui + TanStack Query** | 内部控制台形态；已有 Vercel 生产经验；组件代码自持有 |
-| 业务核心 core | **Go 1.23+：chi（路由）+ sqlc（类型安全 SQL）+ goose（迁移）+ oapi-codegen（OpenAPI-first）** | 生产级服务工程的学习主场；单二进制部署、低资源占用（VPS 友好）；全部是社区主流无魔法的工具 |
+| 前端 client | **Next.js 15 (App Router) + TypeScript + Tailwind CSS + shadcn/ui** | 内部控制台形态；当前 UI 以现有客户端数据获取模式为准，TanStack Query 暂不作为架构前提 |
+| 业务核心 core | **Go 1.25：chi（路由）+ sqlc（类型安全 SQL）+ goose（迁移）+ oapi-codegen（OpenAPI-first）** | 生产级服务工程的学习主场；单二进制部署、低资源占用（VPS 友好）；全部是社区主流无魔法的工具 |
 | Agent 运行时 agents | **Python 3.12：uv（包管理）+ Pydantic + 自研轻量 agent runtime** | AI 生态母语：评分校准的统计分析（pandas/scipy）、Langfuse Python SDK 一等支持；自研 runtime 学习收益最大（ADR-002） |
 | 模型接入 | **Provider 抽象层：AnthropicProvider + OpenAICompatProvider 双协议** | OpenAI 协议已是行业通用协议（DeepSeek/Qwen/Kimi/GLM/OpenRouter/Ollama 全兼容），Anthropic 协议有独特能力（caching/thinking）；按任务路由模型，改配置即切换（ADR-002） |
 | 数据库 | **PostgreSQL 17 自托管于 VPS + pgvector**（业务库与 Langfuse 库同实例，ADR-004） | 少一个外部依赖；容量不受免费额度限制；与 core/agents 同机低延迟；数据主权在己。代价是备份/监控自负（ADR-004 硬性要求） |
 | 任务队列 | **pgmq**（Postgres 扩展，镜像内置） | 跨语言（本质是 SQL）；**入队与业务状态变更同事务**，保证编排正确性；VPS 无需 Redis（ADR-003） |
-| 定时调度 | core 内置 cron（robfig/cron）投递 pgmq job | 调度逻辑与编排同处一地，可观测 |
+| 定时调度 | core 内置 scheduler（`time.Ticker` 检查 DB 配置）创建 WorkflowRun，并由工作流节点投递 pgmq job | 自动和手动运行统一走 WorkflowRun；默认每 12 小时自动运行一次，业务调度语义以 SPEC-010 为准 |
 | 契约 | **JSON Schema + OpenAPI 为源，codegen 三端**（详见 §3） | 语言中立，三种语言共享一份契约 |
 | 可观测 | **OpenTelemetry Collector + Tempo + Prometheus + Grafana；Langfuse 保留 LLM 细节** | OTel 覆盖 Core/队列/Agents/DB 全链路；Tempo 保存安全的任务 Trace；Prometheus 保存低基数指标；LLM Span 通过 `langfuse.trace_id` 跳转（ADR-006） |
 | 采集 | **RSSHub（VPS 已有实例，复用）+ Python 侧 feedparser/trafilatura** | 采集与清洗划入 agents 侧的 Python 生态（见 §2 分工） |
@@ -44,8 +44,8 @@
 ┌──────────────────────────────────────▼──────────────────────────────────┐
 │                     scholar-core (Go)                 VPS Docker        │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌─────────────────────┐  │
-│  │ Pipeline   │ │ Metrics    │ │ Cron       │ │ REST API            │  │
-│  │ Orchestr.  │ │ Module     │ │ Scheduler  │ │ (oapi-codegen)      │  │
+│  │ Workflow   │ │ Metrics    │ │ Scheduler  │ │ REST API            │  │
+│  │ Orchestr.  │ │ Module     │ │ (DB config)│ │ (oapi-codegen)      │  │
 │  │ (状态机唯一 │ └────────────┘ └────────────┘ └─────────────────────┘  │
 │  │  写入口)    │                                                        │
 │  └─────┬──────┘                                                        │
@@ -92,7 +92,7 @@ scholar-shared/
     go/               # quicktype/oapi-codegen 产物 → core 引用（go mod）
     python/           # datamodel-code-generator 产物（Pydantic v2）→ agents 引用
     ts/               # openapi-typescript + json-schema-to-typescript 产物 → client 引用
-  rubrics/            # rubric 定义（YAML，版本化，如 topic.v1.yaml）——数据而非代码，三语言可读
+  rubrics/            # rubric 定义（YAML，版本化，如 topic@v2）——数据而非代码，三语言可读
 ```
 
 - 生成物提交入库，CI 校验"重新生成后无 diff"，防手改漂移。
@@ -136,7 +136,7 @@ LLM Span      → langfuse.trace_id data link          → Langfuse
 
 ## 7. 开放问题
 
-- [ ] gen/go 以 go module 方式被 core 引用：直接 `require github.com/scholars-ai/scholar-shared/gen/go` 还是 go.work？（M0 实操定）
+- [x] gen/go 与 core 的引用方式已在实现中确定；生成物仍由 scholar-shared 维护，breaking change 先更新 SPEC-002。
 - [x] Langfuse：自托管于 VPS，与业务库共用 Postgres 实例，trace 保留 30 天（ADR-004）
 - [ ] 公众号排版（md → 微信富文本）方案（M2 决定）
 - [x] embedding：SiliconFlow `BAAI/bge-m3` 原生 1024 维；Ollama 仅作备用（ADR-005 v2）

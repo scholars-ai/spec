@@ -1,10 +1,12 @@
 # SPEC-002 · 数据模型
 
-- 状态：Draft
+- 状态：Superseded（历史实体草案；当前运行与回放模型以 SPEC-010 为准）
 - 日期：2026-08-06
 - 依赖：SPEC-001
 
 所有实体的 JSON Schema 定义在 `scholar-shared/schemas/`（单一事实来源，codegen 出 Go/Python/TS 三端类型），`scholar-core` 的 goose 迁移与之对齐，由 CI 保证一致。下面是核心实体与关系（省略 created_at/updated_at 等审计字段）。
+
+> 当前基线：本文件中的原有领域实体（Source、RawItem、Topic、Article 等）继续有效，但一次生产执行必须由 `WorkflowRun` 及其节点运行、逐条判定、快照和血缘实体包住。旧的独立 job/状态描述不得替代 SPEC-010 的运行语义。
 
 ## 1. 实体关系总览
 
@@ -16,8 +18,68 @@ Source 1──n RawItem n──1 Topic 1──n TopicEvaluation
                                   1──n Publication 1──n MetricSnapshot
                                   │
 Insight n──────────────────────────┘ (反思产出，关联文章/选题)
-AgentRun (贯穿所有环节的运行留痕，soft 关联各实体)
+AgentRun (LLM/worker 运行留痕，soft 关联各实体)
+WorkflowRun 1──n WorkflowNodeRun 1──n WorkflowItemDecision
+WorkflowRun 1──n WorkflowArtifactRef（输入/输出及跨节点血缘）
+WorkflowRun 1──n WorkflowEvent
+WorkflowRun 1──n WorkflowRun（parent/replay）
 ```
+
+## 2A. 工作流运行实体（SPEC-010 当前基线）
+
+### workflow_definitions — 工作流定义
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | uuid pk | |
+| key / version | text | 第一阶段固定为 `content_production` 及其不可变版本 |
+| definition | jsonb | 六个节点及其顺序、输入输出契约和策略 |
+| status | enum | `active` / `retired` |
+
+### workflow_runs — 一次完整运行或 replay 子运行
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | uuid pk | |
+| workflow_definition_id | fk | 工作流定义快照来源 |
+| status | enum | `queued` / `running` / `waiting_human_review` / `completed` / `completed_empty` / `partial_failed` / `failed` / `cancelled` |
+| trigger_type | enum | `scheduled` / `manual` / `replay` |
+| parent_run_id | fk nullable | replay 的父运行；原运行不可变 |
+| replay_from_node / replay_scope | text/jsonb nullable | 回放起点与范围 |
+| input_snapshot_id / config_snapshot_id | uuid | 不可变输入和配置快照 |
+| summary | jsonb | 各阶段输入、通过、拒绝、跳过、失败、重试和输出数量 |
+| started_at / finished_at | timestamptz | |
+
+### workflow_node_runs — 节点级执行
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | uuid pk | |
+| run_id / node_key | fk/text | `source_fetch`、`topic_scout`、`topic_evaluate`、`article_write`、`article_evaluate`、`human_review` |
+| status | enum | `queued` / `running` / `succeeded` / `partial_failed` / `failed` / `skipped` / `cancelled` |
+| input_snapshot_id / output_snapshot_id | uuid | 节点输入输出集合 |
+| config_snapshot | jsonb | 并发、资源限制、Agent/prompt/model/rubric/阈值版本 |
+| counts | jsonb | 动态漏斗聚合统计，不是固定配额 |
+
+### workflow_item_decisions — 逐条判定
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | uuid pk | |
+| run_id / node_run_id / item_id | fk/uuid | 被处理的 raw item、topic 或 article |
+| item_type | enum | `raw_item` / `topic` / `article` |
+| decision | enum | `accepted` / `rejected` / `skipped` / `failed` |
+| reason_code / reason | text | 机器可聚合 code 与人类可读原因；业务拒绝和技术失败必须区分 |
+| dimension_scores / total_score | jsonb/numeric nullable | 适用于评估节点 |
+| threshold / weight_version / rubric_version | jsonb/text nullable | 实际生效的评分配置 |
+| input_refs / evidence_refs | jsonb | 输入产物及证据引用 |
+| agent_run_id / trace_id | fk/text nullable | LLM/worker 观测关联 |
+
+### workflow_snapshots、workflow_artifact_refs、workflow_events
+
+- 快照固化工作流定义、输入输出集合、触发参数、节点配置、rubric、prompt、模型和 Agent 版本。
+- 产物引用连接 `raw_item → topic → topic_evaluation → article → article_evaluation → human_review`，大文本使用不可变引用和校验信息。
+- 事件记录阶段屏障、状态变化、重跑和缺失观测；事件 payload 不承载超大原文。
 
 ## 2. 表定义
 
@@ -138,6 +200,7 @@ AgentRun (贯穿所有环节的运行留痕，soft 关联各实体)
 | id | uuid pk | |
 | job_type | text | `topic.evaluate` / `article.write` / ... |
 | entity_type / entity_id | text / uuid | 软关联业务实体 |
+| workflow_run_id / workflow_node_run_id | uuid nullable | 关联一次工作流运行及节点 |
 | langfuse_trace_id | text | 跳转 Langfuse 看完整 trace |
 | model / prompt_version | text | |
 | tokens_in / tokens_out / cost_usd | numeric | 成本核算 |
@@ -163,13 +226,18 @@ AgentRun (贯穿所有环节的运行留痕，soft 关联各实体)
 
 ## 3. 状态机
 
+工作流节点状态和 item 判定状态属于运行层，见上文 §2A；Topic/Article 状态机仍属于领域层，且只有 Core 可以推进。工作流层不得复制或替代领域状态机。
+
 ### Topic
 
 ```
-candidate ──评分──▶ scored ──人工确认──▶ approved ──分派写作──▶ in_writing ──▶ written
-    │                  │
-    └──────────────────┴──▶ rejected（人工否决或低分自动淘汰，保留数据用于校准）
+candidate ──topic_evaluate accepted──▶ in_writing ──▶ written
+    │                 │
+    ├── rejected ─────┘（低分或业务规则拒绝，保留数据用于校准）
+    └── skipped/failed（资源保护或执行失败，原因记录在 WorkflowItemDecision）
 ```
+
+`scored` / `approved` 是历史独立选题看板 API 的兼容状态，不是标准 `WorkflowRun` 中写作前的人工门槛。生产链路以 `WorkflowItemDecision.decision=accepted` 作为进入 `article_write` 的条件。
 
 ### Article
 

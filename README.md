@@ -4,6 +4,18 @@
 
 本仓库是 scholars-ai 组织的**唯一事实来源（Source of Truth）**：所有架构决策、模块设计、评分体系、路线图都以 spec 文档形式沉淀在这里。任何仓库的重大改动，先改 spec，再写代码。
 
+## 当前基线
+
+`SPEC-010` 是当前内容生产运行模型的唯一有效基线。旧 SPEC 仍保留设计演进和带日期的验收证据，但其中与 `SPEC-010` 冲突的调度、阶段边界、数据模型、数量语义和回放语义均已被取代；开发、契约和实现评审不得把旧文档中的冲突内容当作当前要求。
+
+当前标准工作流为：
+
+```text
+WorkflowRun → source_fetch → topic_scout → topic_evaluate → article_write → article_evaluate → human_review
+```
+
+自动和手动运行均创建 `WorkflowRun`，默认每 12 小时自动运行一次；各阶段是动态漏斗，不设固定业务数量配额；每个 item 的接受、拒绝、跳过和失败及其原因必须可回溯；节点重跑创建不可变的 replay 子运行。
+
 ## Spec 索引
 
 | 编号 | 文档 | 内容 |

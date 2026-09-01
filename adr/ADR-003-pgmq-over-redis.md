@@ -1,6 +1,6 @@
 # ADR-003 · 任务队列用 pgmq 取代 BullMQ/Redis
 
-- 状态：Accepted
+- 状态：Accepted（队列决策仍有效；调度实现表述已由 SPEC-010 更新）
 - 日期：2026-08-07
 
 ## 背景
@@ -9,7 +9,7 @@ v1 选 BullMQ + Redis 做 core → agents 的任务队列。ADR-001 语言切换
 
 ## 决策
 
-使用 **pgmq**（Postgres 扩展，亦是 Supabase Queues 的底层实现）作为任务队列；core 内置 cron（robfig/cron）负责定时投递；不引入 Redis。
+使用 **pgmq**（Postgres 扩展，亦是 Supabase Queues 的底层实现）作为任务队列；core 内置 scheduler 负责创建 `WorkflowRun` 并投递节点 job；不引入 Redis。旧版本中“robfig/cron”只是历史实现描述，当前实现以 core 的 `time.Ticker` + DB 配置和 SPEC-010 的 12 小时 WorkflowRun 调度为准。
 
 ## 理由
 

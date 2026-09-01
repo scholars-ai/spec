@@ -1,12 +1,12 @@
 # SPEC-003 · 选题采集（Sourcing）
 
-- 状态：Draft
+- 状态：Superseded（采集策略保留；运行编排与数量语义以 SPEC-010 为准）
 - 日期：2026-08-06
 - 依赖：SPEC-001, SPEC-002
 
 ## 1. 目标
 
-每天自动、稳定地把 AI 领域值得写的素材汇入系统，聚合成**带素材支撑的选题候选**，供评分环节消费。质量优先于数量：宁可 10 条高质量候选，不要 100 条噪音。
+在每次 `WorkflowRun` 的 `source_fetch` 阶段，稳定地把 AI 领域素材汇入系统，供同一运行的 `topic_scout` 消费。质量优先于噪音，但不以固定数量作为成功条件。
 
 ## 2. 信源分类与角色
 
@@ -44,10 +44,10 @@
 
 结论：**不为微信自研爬虫**（SPEC-008 §7）。公众号内容通过 `signal` 型聚合源的摘要覆盖。实际损失有限——重要新闻必被多个网页源覆盖，M2 素材增强可按关键词找到可抓取的替代来源。
 
-## 3. 采集流水线
+## 3. 采集流水线（`source_fetch` 节点）
 
 ```
-core cron 每小时投递 pgmq job ──▶ agents 侧 fetch(source)
+WorkflowRun 的 `source_fetch` 节点按启用信源 fan-out 投递 pgmq job ──▶ agents 侧 fetch(source)
    ──▶ role=material 且 full_text=fetch_page 时抓原文页（trafilatura）
    ──▶ 清洗 ──▶ 精确去重（guid 优先，回退 content_hash）
    ──▶ embedding（SiliconFlow bge-m3，1024d；Ollama 备用）──▶ 语义去重（近 14 天相似度 > 0.92 合并）
@@ -59,7 +59,7 @@ core cron 每小时投递 pgmq job ──▶ agents 侧 fetch(source)
 - **XML 解析必须用 `defusedxml` 或 feedparser**（第三方 feed 是不可信输入，防 XXE / billion-laughs）。
 - 语义去重命中时，**保留素材更厚的那条**（material 优先于 signal），薄的那条作为补充素材记录。
 
-### 3.1 两道入库前的闸门（M1 实测踩坑后新增）
+### 3.1 两道资源保护闸门（不是质量判定）
 
 **feed 的条目数与时间范围完全不可信**，必须双重设限，且都要在 embedding 之前生效（否则白烧额度）：
 
@@ -70,6 +70,8 @@ core cron 每小时投递 pgmq job ──▶ agents 侧 fetch(source)
 
 时效性窗口是更本质的约束——**选题系统要的是新鲜资讯**，`max_items` 只是防止单源体量失控。
 两者顺序：先按 `max_items` 截断条目，再逐条按 `published_at` 过滤，最后才 embedding。
+
+`max_items` 和时效窗口是资源/新鲜度保护，不是“只允许产生多少素材”的业务配额。因容量保护未处理的条目必须以 `deferred` 或下一批输入的方式留痕，不能静默丢弃。
 
 对无 `published_at` 的条目不做时效过滤（宁可多收，交给后续评分环节判断）。
 
@@ -87,11 +89,11 @@ core cron 每小时投递 pgmq job ──▶ agents 侧 fetch(source)
 - **raw_items 语义去重（0.92）**：只挡"同一条内容重复入库"，保持高阈值（宁可漏合并，不可错杀素材）
 - **同一事件的多源合并**：属 §4 TopicScout 的聚类职责——它有 LLM 语义理解，能判断"同一事件的不同角度"与"两个不同话题"的差别
 
-## 4. 选题聚合（TopicScout Agent）
+## 4. 选题聚合（`topic_scout` / TopicScout Agent）
 
 采集只产生"素材"，**选题是素材之上的创作视角**，由 `scholar-agents` 的 TopicScout 完成：
 
-- 触发：每天定时 2 次（早/晚），消费 `status=new` 的 raw_items。
+- 触发：紧接同一 `WorkflowRun` 的 `source_fetch` 阶段，消费本次运行输入快照中的 raw items。
 - 职责：
   1. 聚类相关素材（同一事件的多篇报道合并）；
   2. 对每簇素材提出 1–3 个**选题角度**（同一事件对小红书和知乎的写法角度可能完全不同）；
@@ -99,10 +101,10 @@ core cron 每小时投递 pgmq job ──▶ agents 侧 fetch(source)
   4. 与现有 topics 查重（embedding 相似度），撞车则丢弃或标注为已有选题的补充素材。
 - 检索增强：TopicScout 生成角度前，检索 insights 表中 `topic_lesson` 类经验（"什么样的角度在什么平台容易爆"），作为 prompt 上下文。
 
-## 5. 验收标准（M1）
+## 5. 验收标准（M1 历史目标；当前运行验收以 SPEC-010 §9 为准）
 
 - [ ] ≥8 个信源稳定采集，单源失败不影响整体（隔离重试 + 连续失败告警）
-- [ ] 每天产出 ≥10 条选题候选，语义重复率 < 10%
+- [ ] 历史目标：每天产出 ≥10 条选题候选，语义重复率 < 10%（不再作为当前固定配额）
 - [ ] 手动投喂 URL 到出现在候选池 < 2 分钟
 - [ ] client 可管理信源（增删改、启停、看最近抓取状态）
 

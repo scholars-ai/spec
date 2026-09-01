@@ -7,7 +7,7 @@
 
 Agent 实现有三条路：自研轻量 runtime（Anthropic/OpenAI SDK 直调 + 自写 loop）、Claude Agent SDK、LangGraph 等框架。同时用户明确要求：模型层要能**无缝切换 Anthropic 协议与 OpenAI 协议**（接入 DeepSeek/Qwen/Kimi/GLM 等 OpenAI 兼容模型）。
 
-关键判断：本项目五步流程是**确定性工作流 + 节点上的结构化 LLM 调用**，而非开放式自主 Agent。真正需要"loop + 工具调用"的只有 TopicScout 和 Reflector。
+关键判断：本项目六阶段内容生产链是**确定性工作流 + 节点上的结构化 LLM 调用**，而非开放式自主 Agent。真正需要"loop + 工具调用"的只有 TopicScout 和 Reflector；当前运行边界、阶段屏障和回放由 SPEC-010 的 `WorkflowRun` 定义。
 
 ## 决策
 

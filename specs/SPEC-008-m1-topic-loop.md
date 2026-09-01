@@ -1,15 +1,17 @@
 # SPEC-008 · M1 实施计划：选题闭环
 
-- 状态：Accepted
+- 状态：Superseded（M1 历史实施与验收记录；当前运行基线为 SPEC-010）
 - 日期：2026-08-08
 - 依赖：SPEC-003（采集）、SPEC-004（评分）、SPEC-007 §M1
 - 前置决策：ADR-004（DB 自托管）、ADR-005 v2（embedding 走 SiliconFlow API，Ollama 降为备用）
 
-M0 已交付五仓骨架。本 spec 把 SPEC-007 的 M1 里程碑落成可执行清单。
+M0 已交付六仓库骨架。本 spec 把 SPEC-007 的 M1 里程碑落成可执行清单。
 
-## 1. 目标
+> **历史文档声明**：本文件记录 M1 选题闭环在 2026-08 的实施过程、当时的调度配置和验收证据。它不定义当前生产工作流。当前自动/手动运行、12 小时调度、动态漏斗、节点判定、快照和 replay 均以 [SPEC-010](SPEC-010-workflow-run-and-replay.md) 为准；下文带日期的数字和配置不得作为新实现要求。
 
-打通五步流程的前两步——**采集 → 聚合选题 → 评分 → 人工确认**，全链路运行在 VPS 上。
+## 1. 目标（历史 M1）
+
+打通当时五步流程的前两步——**采集 → 聚合选题 → 评分 → 人工确认**，全链路运行在 VPS 上。该阶段目标已完成并被 SPEC-010 的六阶段 `WorkflowRun` 包含。
 产出物的判定标准：**每天打开看板，就有带评分和理由的可写选题**。
 
 ## 2. 已拍板的技术决策
@@ -20,7 +22,7 @@ M0 已交付五仓骨架。本 spec 把 SPEC-007 的 M1 里程碑落成可执行
 | Embedding | **SiliconFlow API `BAAI/bge-m3`（原生 1024 维）**，输入截断 600 字符；本机 Ollama 降为 `EMBED_BACKEND=ollama` 备用 | ADR-005 v2（本机方案实测不可行，见该 ADR §决策变更） |
 | 可观测 | OTel Collector → Tempo/Prometheus → Grafana；LLM 细节留在 Langfuse | ADR-006；Langfuse 数据与保留见 ADR-004 |
 
-## 3. 数据流（M1 结束时的运行态）
+## 3. 数据流（M1 历史运行态）
 
 ```
 core scheduler tick（每分钟，仅为检查粒度）
@@ -31,7 +33,7 @@ agents SourcingHandler ◀────┘
   → embedding（SiliconFlow bge-m3，1024d）→ 语义去重（近 14 天 cos > 0.92）
   → raw_items(status=new)
                             │
-core scheduler ──▶ 到期的 topic_scout（默认每日 2 次，可配）
+core scheduler ──▶ 到期的 topic_scout（M1 历史默认每日 2 次，可配）
                             │
 agents TopicScout（自研 loop 首次实战）
   聚类素材 → 每簇提 1–3 个选题角度 → 与既有 topics 向量查重
@@ -40,7 +42,7 @@ agents TopicScout（自研 loop 首次实战）
 core harvester ──▶ 新 candidate **事件驱动**立即投递 topic_evaluate（不等固定时刻）
                             │
 agents TopicJudge（structured output 首次实战）
-  读 rubrics/topic.v1.yaml + DB weight_sets → 维度分 + 理由
+  读当时的 `topic@v1` rubric + DB weight_sets → 维度分 + 理由（历史实现）
   → topic_evaluations + agent_runs（挂 Langfuse trace）
                             │
 core harvester ──▶ 状态机 candidate→scored；≥75 推荐 / 60–75 备选 / <60 自动 rejected
@@ -50,14 +52,14 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 
 每次 API/调度触发创建 `correlationId`，每条 pgmq 消息拥有独立 `jobId`，下游通过 `parentJobId` 和 W3C `traceparent` 继续同一 Trace。Core/Agents 的安全 Span 进入 Tempo；Scout/Judge 的 prompt、完整输出、token、成本和评分只进入 Langfuse，Tempo 通过 `langfuse.trace_id` 关联。
 
-### 3.1 调度是配置，不是硬编码（2026-08-11 修订）
+### 3.1 历史调度配置（已被 SPEC-010 取代）
 
-初版把「每小时采集、每日 2 次 scout」写成固定 cron 表达式。这是**默认运行策略，不是业务规则**，因此改为存 DB、由 client 修改：
+初版把「每小时采集、每日 2 次 scout」写成固定 cron 表达式；以下是 M1 期间的 DB 配置模型和验收记录，现已被统一 `WorkflowRun` 调度取代：
 
 | job | 调度方式 | 默认值 | 可配粒度 |
 |---|---|---|---|
-| `source_fetch` | interval | 每 60 分钟 | **全局默认 + 每个 source 单独覆盖**；可暂停；可手动立即触发 |
-| `topic_scout` | daily times | 08:00 / 20:00（Asia/Shanghai） | 执行时刻、时区、启停、`min_new_items`（新素材不足则跳过） |
+| `source_fetch` | interval | 每 60 分钟（历史值） | **全局默认 + 每个 source 单独覆盖**；可暂停；可手动立即触发 |
+| `topic_scout` | daily times | 08:00 / 20:00（历史值） | 执行时刻、时区、启停、`min_new_items`（新素材不足则跳过） |
 | `topic_evaluate` | **event-driven** | candidate 产生即投递 | 启停、并发上限 |
 
 三条设计纪律：
@@ -78,6 +80,8 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 ### 3.2 环境变量与 DB 配置的边界
 
 `DEFAULT_*` 环境变量**只用于首次 seed**（DB 无配置时的初始值）。一旦用户在 client 改过，运行时真相只在 DB——不再回读环境变量，否则重启会静默覆盖用户设置。
+
+当前替代规则：scheduler 默认每 12 小时创建一次 `WorkflowRun`，自动和手动入口统一执行 `source_fetch → topic_scout → topic_evaluate → article_write → article_evaluate → human_review`；节点推进和 fan-in/fan-out 由 SPEC-010 定义。
 
 ## 4. 交付清单
 
@@ -107,13 +111,13 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 ### scholar-client（Next.js）
 - [x] 选题看板：候选列表（分数排序）、维度分可视化、评分理由展开、approve/reject
 - [x] 信源管理页：增删改、启停、**单独采集频率覆盖**、手动立即采集、最近抓取状态与连续失败告警
-- [x] **调度设置页**：全局采集间隔、scout 执行时刻/时区/min_new_items、evaluate 启停与并发。用表单生成 cron，不让用户手写表达式
+- [x] **调度设置页**：全局采集间隔、scout 执行时刻/时区/min_new_items、evaluate 启停与并发。用表单生成调度配置，不让用户手写表达式
 - [x] 手动投喂入口（高频动作，一键贴 URL）
 
 ### scholar-infra + 部署
 - [x] `compose.prod.yaml` 增加 postgres 服务（自建镜像）+ named volume；langfuse 指向同实例独立 database
 - [x] 备份：每日 `pg_dump` → 加密 → 本地保留 7 份 → COS 离机副本；上传后回读校验，COS 下载恢复演练已完成
-- [x] 磁盘监控告警（> 85%），cron 每 6h
+- [x] 磁盘监控告警（> 85%），每 6h 定时检查
 - [x] GHCR 镜像构建 CI（core/agents）+ deploy.sh 已具备版本部署路径；core/agents/Langfuse/Postgres 已在 VPS 运行
 - [ ] nginx 反代（复用现有实例）：client 访问 core API
 
@@ -125,17 +129,17 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 2. **契约扩展**：shared 改 OpenAPI + 评分 schema → codegen
 3. **core CRUD**：sources 管理 + 手动投喂（先把 API 链路走通）
 4. **agents embed + SourcingHandler**：先接 2–3 个源本地验证，再扩到 ≥8
-5. **core cron**：采集自动化
+5. **core scheduler**：采集自动化（历史 M1 步骤）
 6. **agents TopicScout → TopicJudge**：**同时接 Langfuse**（调 prompt 全靠看 trace，这步工作量最大）
 7. **core harvester**：闭环在后端成立
 8. **client 看板 + 信源管理**：有真数据后再做界面
 9. **VPS 部署 + 试运行一周** → 逐条打勾 §6
 
-## 6. 验收标准
+## 6. 验收标准（历史 M1；当前验收以 SPEC-010 §9 为准）
 
 **功能**
 - [x] ≥8 个信源接入并完成真实采集；单源失败隔离、连续失败状态可观测
-- [x] 每天自动产出 ≥10 条选题候选，语义重复率 < 10%（2026-08-14 09:00 Asia/Shanghai 自动窗口产生 12 条候选，12 条均完成 Judge；当前全库 `cosine >= 0.92` 重复 pair 为 0）
+- [x] 历史目标：每天自动产出 ≥10 条选题候选，语义重复率 < 10%（该数量不构成当前固定配额）
 - [x] 手动投喂 URL → 出现在候选池 < 2 分钟（2026-08-14 真实验收：新 URL 入库后定向 Scout 生成 3 条候选约 31 秒）
 - [x] 每条候选具备总分、6 维度分、人可读理由
 - [x] approve/reject 生效，非法状态流转被拒（409）
@@ -163,7 +167,7 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 - [x] candidate 产生到 `topic_evaluate` 入队 < 1 分钟（事件驱动，非固定时刻）
 - [x] 非法配置（时间格式/间隔越界/重复时刻）被 API 拒绝，scheduler 不崩
 
-## 7. 明确不做（防止范围膨胀）
+## 7. M1 阶段明确不做（历史范围，不代表当前范围）
 
 - 不写文章（Writer 属 M2）
 - 不做数据回流与记忆（M3）；TopicScout 的 insights 检索只留接口
@@ -208,7 +212,7 @@ scholar-client 选题看板 ──▶ 人工 approve / reject（scored → appro
 
 - 补充你自己订阅的高价值源，尤其 **kol 类**（X 账号、Newsletter）——该类源出爆款选题密度最高，也是最难由系统替你猜的部分。
 
-## 11. 生产验收记录
+## 11. 生产验收记录（历史快照，仅用于追溯）
 
 - **VPS 全链路**：手动投喂 `https://www.python.org/downloads/release/python-3130/` 后，`raw_items` 入库并被定向 Scout 处理；约 31 秒内生成 3 条 candidate，随后 3 条均完成 TopicJudge，状态均为 `scored`，总分为 `91.76 / 81.18 / 81.18`。
 - **自动调度**：2026-08-14 05:12（Asia/Shanghai）由 core scheduler 按 DB 配置自动投递 `topic_scout`，5 条素材批次约 50 秒完成，随后 8 条 Judge 任务全部成功；为满足“每天至少 10 条”并保持单 job 输入边界，生产调度使用 `08:00/12:00/16:00/20:00` 四个窗口，普通定时 Scout 单 job 默认最多处理 20 条素材，手动定向投喂不受该限制。

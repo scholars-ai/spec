@@ -1,17 +1,17 @@
 # SPEC-005 · 写作 Agent 军团
 
-- 状态：Implemented（工程闭环完成；真实运营质量指标持续验收）
+- 状态：Implemented（写作能力已落地；当前运行编排以 SPEC-010 为准）
 - 日期：2026-08-06
 - 依赖：SPEC-002, SPEC-004
 
 ## 1. 目标与形态
 
-一个 topic 被 approved 后，按 target_platforms 分派给对应的**平台专家 Agent**并行写作，各自产出适配该平台的 Markdown 成品。专家 Agent 是**同构不同魂**：共享同一套写作流水线骨架，差异全部收敛在"平台档案（Platform Profile）"里——这是保证"后续新增平台专家 Agent"低成本的关键设计。
+`article_write` 节点对本次运行中全部通过 `topic_evaluate` 的 topic，按 `target_platforms` 分派对应的**平台专家 Agent**并行写作，各自产出适配该平台的 Markdown 成品。生产工作流不要求用户逐题人工批准；旧的 `approved` 状态仅供独立看板操作兼容。专家 Agent 是**同构不同魂**：共享同一套写作流水线骨架，差异全部收敛在"平台档案（Platform Profile）"里——这是保证"后续新增平台专家 Agent"低成本的关键设计。
 
 ## 2. Agent 编排（自研 runtime，ADR-002）
 
 ```
-article.write job (topic_id, platform, rewrite?)
+article.write job (workflow_run_id, topic_id, platform, rewrite?)
    │
    ▼
 WriterOrchestrator（每平台一个实例，注入对应 Platform Profile）
@@ -28,7 +28,7 @@ WriterOrchestrator（每平台一个实例，注入对应 Platform Profile）
 产出 Article(draft) → core 触发 article.evaluate（SPEC-004 的独立 Judge）
 ```
 
-- 模型分配：Outliner/Drafter 用 `claude-sonnet-5`；SelfCritic 可用更便宜档位。prompt 版本号记入 articles.writer_agent。
+- 模型分配：由 `model_routing.yaml` 和本次 `WorkflowNodeRun` 配置快照决定；当前生产路由以实际部署配置为准（现行为包含 `vtrix/gpt-5.6-sol`），不得在文档中假定固定供应商模型。prompt、模型和 Agent 版本必须同时写入快照与 `agent_runs`。
 - 回炉：评分不达标时，core 原子执行旧版本 `scored → rewrite_queued` 并投递下一版本任务；Writer 新建 Article 行并写入 `previous_article_id`，不覆盖旧稿。
 - `rewrite.evaluationFeedback` 组合总体理由、每维分数/理由和 veto 维度；默认只重跑 ③④，`structure < 6` 时设置 `redoOutline=true` 重跑 ②。
 - 版本上限为 v3：v1 最多回炉到 v2、v3；v3 仍不通过时不再投递写作任务，交人工介入。
@@ -60,9 +60,9 @@ WriterOrchestrator（每平台一个实例，注入对应 Platform Profile）
 - 渲染层抽象：`Renderer` 接口 `render(article, targetFormat)`，第一阶段只有 `MarkdownRenderer`（原样输出）；后续加 `WechatRichTextRenderer`（md → 公众号排版 HTML）等，不影响写作层。
 - 配图/封面：articles.assets 字段已预留（SPEC-002）。M3+ 增加 `Illustrator` 子 Agent：产出配图 brief → 文生图 → 存 COS → 回填 assets。写作时 Drafter 已被要求在 md 中留 `<!-- image: 描述 -->` 占位注释，届时无缝接上。
 
-## 5. 验收标准（M2）
+## 5. 验收标准（M2 历史里程碑；当前运行验收以 SPEC-010 §9 为准）
 
-- [x] 一个 approved topic 10 分钟内并行产出 3 平台文章并完成评分；跨仓库 Fake AI E2E 对批准时间到三平台 `pending_review` 的墙钟时间做 ≤10 分钟断言
+- [x] 历史 M2 验收：一个 approved topic 10 分钟内并行产出 3 平台文章并完成评分；该性能结果不构成当前每批固定数量或时限配额
 - [ ] 三平台文章风格肉眼可辨（盲测能分出哪篇是给哪个平台的）
 - [x] Formatter 拦截率可观测：`scholar_agent_formatter_violations_total{platform,stage}` 区分首次拦截与修复后仍失败，`scholar-infra/scripts/m2-audit.sh` 可直接查询
 - [ ] 人工修改量（publications.final_content_diff）平均 < 30%
