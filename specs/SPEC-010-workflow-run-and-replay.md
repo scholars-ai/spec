@@ -383,6 +383,15 @@ Replay 默认使用父运行的输入快照，但可以显式替换当前节点�
 - E2E 已验证：M1/M2/M3 既有闭环；六阶段动态内容生产 workflow；每节点输入/输出快照、逐条判定、漏斗摘要和人工审核产物；快照归档/恢复与 retention；`article_write` 和 `article_evaluate` replay、幂等及跨运行隔离；版本覆盖的注册校验；Tempo/Langfuse 关联；Collector 不可用告警和观测故障下业务继续运行。
 - 本次验收前修复了 `00017_workflow_versions.sql` 中 `rubric/topic@v1` seed SHA-256 缺失 3 个字符的问题（`scholar-core@a339b39`）。迁移在全新数据库上成功执行，所有 25 条 seed 哈希均通过 64 位和算法一致性校验。
 
+### 9.2 2026-09-03 生产调度修复记录
+
+- 根因：VPS 生产 Core/Agents 容器仍运行 2026-08-22 的旧镜像，Git 仓库更新不会自动触发镜像构建、拉取或容器重建；旧 Core 因此继续按历史 `topic_scout` 时刻调度。
+- 迁移阻塞：生产数据库停在 migration 10；`00011_spec010_workflow_runtime.sql` 原先在删除旧 `workflow_runs_mode_check` 约束前更新 mode，导致升级失败。已在 `scholar-core@cf6ae6b` 修正顺序，VPS 已成功迁移至版本 18。
+- 当前生产部署：Core/Agents 已用当前提交构建并运行 `prod-local-20260903-workflow-fix`；scheduler 日志确认创建 `trigger_type=scheduled` 的 `content_production` WorkflowRun，默认 `intervalHours=12`。
+- 自动运行实证：2026-09-03 12:17（Asia/Shanghai）完成一次完整六节点运行；因 SiliconFlow 余额不足（HTTP 402）及一个无 URL 的 `Manual Feed`，source_fetch 无可用 raw item，运行以 `completed_empty` 结束，后续节点按漏斗规则标记 skipped。该结果是外部运行配置问题，不是旧调度分支。
+- VPS E2E：在 VPS 执行 `scholar-infra/e2e/run.sh`，退出码 `0`；覆盖六阶段 workflow、快照、replay、判定、人工审核和观测故障隔离。该脚本使用隔离测试栈，生产自动调度状态另由上述运行记录验收。
+- 前端：`scholar-client@20d7800` 已部署；调度设置页只展示统一 Content Workflow 与快照保留设置，旧独立调度卡片不再作为当前业务入口。
+
 ## 10. 明确不做
 
 - 不做用户自由拖拽的通用 Dify 工作流编辑器；
