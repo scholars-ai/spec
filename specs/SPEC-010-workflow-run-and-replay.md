@@ -1,7 +1,7 @@
 # SPEC-010 · 批次工作流、漏斗判定与节点级回放
 
 - 状态：Accepted（实现中；运行时与基础回放已落地，完整验收待补齐）
-- 日期：2026-08-24
+- 日期：2026-09-03
 - 依赖：SPEC-001、SPEC-002、SPEC-003、SPEC-004、SPEC-005、SPEC-007；SPEC-008 仅作 M1 历史参考
 
 ## 1. 定位
@@ -22,7 +22,7 @@ WorkflowRun
 
 第一阶段采用一个内置的固定工作流 `content_production`。它提供类似 Dify 的运行画布和调试体验，但不引入通用工作流编辑器，也不让工作流层取代 Core 的领域状态机。
 
-## 1A. 当前实现基线（2026-09-01）
+## 1A. 当前实现基线（2026-09-03）
 
 以下能力已经在各子仓库中落地，并作为后续开发的起点：
 
@@ -37,10 +37,12 @@ WorkflowRun
 - Client 运行详情已展示配置快照、父子 replay 血缘；运行 compare 已展示逐节点漏斗、通过率、原因聚合、耗时、token、成本和产物变化。
 - Core 已增加 OTel exporter 运行中连通性监测；Collector 在运行期间不可达时，新建任务会记录 `observability.status=unavailable` 和 `missing=true`，业务链路不被阻断，并已纳入 VPS E2E。
 - scholar-infra 已增加 `OTelCollectorUnavailable` 与 `OTelMetricsPipelineUnavailable` Prometheus 告警；VPS E2E 在停止 Collector 后验证 Collector 不可达告警进入 firing，同时业务工作流仍可继续。
+- Core 已增加不可变 `workflow_versions` 注册表、幂等 seed、版本列表/注册 API；工作流创建和 replay 会校验显式 Agent、prompt、rubric、weight、model 覆盖是否已注册，未知版本不会再被标记为 validated。
+- Agents 已在 `agent_runs.agent_version` 固化实际执行的 Agent 实现版本；replay 的 `agentVersion` 覆盖会随 job 传递并写入运行留痕。
 
 当前跨仓库验收统一在 VPS 执行：`/root/scholars-ai/scholar-infra/e2e/run.sh`。本机 E2E 的环境差异不作为验收阻塞；每次提交推送后先同步 VPS，再以该脚本的结果为准。
 
-尚未完成的内容不改变本文件的目标语义，主要集中在：大型输入输出对象存储、完整的配置覆盖版本注册与校验，以及 Client 更细粒度的 replay 字段覆盖和比较筛选。
+尚未完成的内容不改变本文件的目标语义，主要集中在：大型输入输出对象存储，以及 Client 更细粒度的 replay 字段覆盖和比较筛选。
 
 ## 2. 已拍板的设计原则
 
@@ -312,12 +314,14 @@ Replay 默认使用父运行的输入快照，但可以显式替换当前节点�
 - 统一自动/手动触发，自动调度默认 12 小时；
 - 从任意节点创建 replay run，并校验输入快照和下游失效；
 - 仍由 Core 负责 topic/article 状态机写入和任务幂等；
+- 维护不可变工作流配置版本注册表，提供注册/查询 API，并在运行与 replay 创建时校验版本存在性；
 - 提供任务列表、详情、节点输入输出、判定、重跑和对比 API。
 
 ### scholar-agents
 
 - 每个 job 回传结构化执行摘要、输入输出引用、逐条判定和 reason code；
 - 固化 Agent、prompt、模型、rubric 和权重版本；
+- 将实际 Agent 实现版本写入 `agent_runs.agent_version`，并接受 replay 的 Agent 版本覆盖留痕；
 - 支持使用父运行输入快照执行 replay；
 - 不在 Agent 侧自行修改 WorkflowRun 状态。
 
@@ -351,7 +355,7 @@ Replay 默认使用父运行的输入快照，但可以显式替换当前节点�
 ### 可解释性
 
 - [ ] 每个被评估 item 都有通过、拒绝、跳过或失败判定。
-- [ ] 每条拒绝记录包含 reason code、可读理由、分数、阈值和版本信息。
+- [x] 每条拒绝记录包含 reason code、可读理由、分数、阈值和版本信息。
 - [ ] 技术失败与业务拒绝在节点状态和统计中分离。
 - [ ] 零产出任务可以显示漏斗在哪一阶段归零及原因聚合。
 - [ ] 任务历史不受后续 prompt、rubric 或配置修改影响。
@@ -361,7 +365,7 @@ Replay 默认使用父运行的输入快照，但可以显式替换当前节点�
 - [ ] 从任意已完成节点创建 replay run，原运行不变。
 - [ ] 从 article_write 回放不会重新采集 RSS 或生成 topic。
 - [ ] 支持只重跑失败项和只重新评估。
-- [ ] Replay 可以替换当前节点的 Agent、prompt、模型、rubric 或阈值。
+- [x] Replay 可以替换当前节点的 Agent、prompt、模型、rubric 或阈值；覆盖值必须引用已注册版本。
 - [ ] 回放的旧下游结果不会混入新产物集合。
 - [ ] 父运行与 replay 运行可以比较通过率、拒绝原因、耗时和成本。
 
@@ -370,7 +374,7 @@ Replay 默认使用父运行的输入快照，但可以显式替换当前节点�
 - [ ] 重复提交同一 replay 请求不会产生重复业务执行。
 - [ ] worker 重启、临时错误和观测系统故障不会破坏运行快照与判定记录。
 - [ ] 大型输入输出有持久化引用和校验，不依赖单条事件 payload。
-- [ ] 所有跨仓库契约先在 scholar-shared 更新，再生成 Core/Agents/Client 类型。
+- [x] 所有跨仓库契约先在 scholar-shared 更新，再生成 Core/Agents/Client 类型。
 
 ## 10. 明确不做
 
