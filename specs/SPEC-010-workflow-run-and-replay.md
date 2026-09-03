@@ -1,6 +1,6 @@
 # SPEC-010 · 批次工作流、漏斗判定与节点级回放
 
-- 状态：Accepted（实现中；运行时与基础回放已落地，完整验收待补齐）
+- 状态：Accepted（工程闭环已通过 VPS E2E；真实运营质量与大对象存储仍持续验收）
 - 日期：2026-09-03
 - 依赖：SPEC-001、SPEC-002、SPEC-003、SPEC-004、SPEC-005、SPEC-007；SPEC-008 仅作 M1 历史参考
 
@@ -40,7 +40,7 @@ WorkflowRun
 - Core 已增加不可变 `workflow_versions` 注册表、幂等 seed、版本列表/注册 API；工作流创建和 replay 会校验显式 Agent、prompt、rubric、weight、model 覆盖是否已注册，未知版本不会再被标记为 validated。
 - Agents 已在 `agent_runs.agent_version` 固化实际执行的 Agent 实现版本；replay 的 `agentVersion` 覆盖会随 job 传递并写入运行留痕。
 
-当前跨仓库验收统一在 VPS 执行：`/root/scholars-ai/scholar-infra/e2e/run.sh`。本机 E2E 的环境差异不作为验收阻塞；每次提交推送后先同步 VPS，再以该脚本的结果为准。
+当前跨仓库验收统一在 VPS 执行：`/root/scholars-ai/scholar-infra/e2e/run.sh`。本机 E2E 的环境差异不作为验收阻塞；每次提交推送后先同步 VPS，再以该脚本的结果为准。VPS 是本项目唯一的跨仓库 E2E 门禁环境。
 
 尚未完成的内容不改变本文件的目标语义，主要集中在：大型输入输出对象存储，以及 Client 更细粒度的 replay 字段覆盖和比较筛选。
 
@@ -375,6 +375,13 @@ Replay 默认使用父运行的输入快照，但可以显式替换当前节点�
 - [ ] worker 重启、临时错误和观测系统故障不会破坏运行快照与判定记录。
 - [ ] 大型输入输出有持久化引用和校验，不依赖单条事件 payload。
 - [x] 所有跨仓库契约先在 scholar-shared 更新，再生成 Core/Agents/Client 类型。
+
+### 9.1 VPS 工程验收记录
+
+- **2026-09-03（Asia/Shanghai）**：VPS `/root/scholars-ai` 六个仓库已同步到 `scholar-shared@6254dd0`、`scholar-core@a339b39`、`scholar-agents@ff8e283`、`scholar-infra@ebe2b39`、`spec@2b13961`、`scholar-client@ea4338b`。
+- 执行命令：`cd /root/scholars-ai/scholar-infra && ./e2e/run.sh`，在全新隔离 PostgreSQL/pgmq、Fake AI、Core、Agents、Tempo、Prometheus 和 Grafana 环境中执行，退出码为 `0`。
+- E2E 已验证：M1/M2/M3 既有闭环；六阶段动态内容生产 workflow；每节点输入/输出快照、逐条判定、漏斗摘要和人工审核产物；快照归档/恢复与 retention；`article_write` 和 `article_evaluate` replay、幂等及跨运行隔离；版本覆盖的注册校验；Tempo/Langfuse 关联；Collector 不可用告警和观测故障下业务继续运行。
+- 本次验收前修复了 `00017_workflow_versions.sql` 中 `rubric/topic@v1` seed SHA-256 缺失 3 个字符的问题（`scholar-core@a339b39`）。迁移在全新数据库上成功执行，所有 25 条 seed 哈希均通过 64 位和算法一致性校验。
 
 ## 10. 明确不做
 
